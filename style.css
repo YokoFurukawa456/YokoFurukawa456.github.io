@@ -1,0 +1,82 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap');
+
+:root {
+  --paper: #ece8de;
+  --paper-dark: #e1dccf;
+  --ink: #24201a;
+  --muted: #665f53;
+  --accent: #8a6a3c;
+  --line: #c9c1b2;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  color: var(--ink);
+  background: radial-gradient(circle at 85% 8%, rgba(138, 106, 60, .13), transparent 29rem), var(--paper);
+  font-family: "Newsreader", Georgia, serif;
+}
+
+.site-shell { width: min(100% - 48px, 1040px); margin: 0 auto; }
+
+.site-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 28px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.monogram, .eyebrow, .project-number {
+  font-family: "DM Mono", monospace;
+  font-size: .73rem;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.monogram, .eyebrow, .project-number { color: var(--accent); }
+.site-header p { margin: 0; color: var(--muted); font-size: .95rem; }
+main { padding: clamp(76px, 15vw, 148px) 0 80px; }
+.intro { max-width: 650px; }
+.eyebrow { margin: 0 0 18px; }
+
+h1 {
+  max-width: 10ch;
+  margin: 0;
+  font-size: clamp(3.3rem, 9vw, 6.8rem);
+  font-weight: 500;
+  line-height: .93;
+  letter-spacing: -.05em;
+}
+
+.lede { max-width: 44ch; margin: 30px 0 0; color: var(--muted); font-size: clamp(1.2rem, 2.2vw, 1.48rem); line-height: 1.45; }
+.projects { margin-top: clamp(70px, 12vw, 120px); }
+.projects-heading { margin: 0 0 16px; font-family: "DM Mono", monospace; font-size: .73rem; font-weight: 400; letter-spacing: .08em; text-transform: uppercase; }
+
+.project-card {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 24px;
+  align-items: center;
+  padding: 28px;
+  border: 1px solid var(--line);
+  color: inherit;
+  text-decoration: none;
+  transition: transform .2s ease, background-color .2s ease, border-color .2s ease;
+}
+
+.project-card:hover, .project-card:focus-visible { border-color: var(--accent); background: var(--paper-dark); outline: none; transform: translateY(-3px); }
+.project-card h2 { margin: 0; font-size: clamp(1.55rem, 3vw, 2.1rem); font-weight: 500; letter-spacing: -.025em; }
+.project-card p { grid-column: 2; margin: 5px 0 0; color: var(--muted); font-size: 1.05rem; }
+.arrow { grid-column: 3; grid-row: 1 / span 2; color: var(--accent); font-family: Arial, sans-serif; font-size: 1.8rem; transition: transform .2s ease; }
+.project-card:hover .arrow { transform: translateX(5px); }
+footer { padding: 26px 0 34px; border-top: 1px solid var(--line); color: var(--muted); font-family: "DM Mono", monospace; font-size: .72rem; }
+
+@media (max-width: 560px) {
+  .site-shell { width: min(100% - 32px, 1040px); }
+  .site-header { padding: 20px 0; }
+  .site-header p { font-size: .82rem; }
+  .project-card { gap: 14px; padding: 21px; }
+}
