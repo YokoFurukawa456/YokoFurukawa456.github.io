@@ -1,0 +1,358 @@
+@import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Inter:wght@400;500;600&display=swap');
+
+:root{
+  --paper: #eae6dd;
+  --paper-deep: #e0dbcf;
+  --ink: #211d17;
+  --ink-soft: #5b544a;
+  --brass: #8a6a3c;
+  --teal: #2f4a47;
+  --line: #c7bfaf;
+  --line-soft: #d8d2c4;
+  --content-gap: 32px;
+}
+
+*{ box-sizing: border-box; }
+html{ scroll-behavior: smooth; }
+
+body{
+  margin:0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: 'Newsreader', Georgia, serif;
+  font-size: 18px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+.label{
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  letter-spacing: 0.01em;
+  color: var(--ink-soft);
+}
+
+.wrap{
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 0 32px;
+}
+
+/* ---------- Header ---------- */
+
+header.hero{
+  padding: 96px 0 72px;
+  border-bottom: 1px solid var(--line);
+  background:
+    radial-gradient(circle at 82% 18%, rgba(138,106,60,0.10), transparent 42%),
+    var(--paper);
+  text-align: center;
+}
+
+.kicker{
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  color: var(--brass);
+  margin: 0 0 18px;
+}
+
+h1.title{
+  font-family: 'Newsreader', serif;
+  font-weight: 500;
+  font-size: clamp(38px, 6vw, 62px);
+  line-height: 1.08;
+  margin: 0 auto 20px;
+  max-width: 14ch;
+  letter-spacing: -0.01em;
+}
+
+.hero-sub{
+  max-width: 46ch;
+  font-size: 20px;
+  color: var(--ink-soft);
+  margin: 0 auto;
+}
+
+/* ---------- Section scaffolding ---------- */
+
+section.part{
+  padding: 88px 0;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+}
+
+section.part:last-of-type{
+  border-bottom: none;
+}
+
+.part-head{
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 0;
+  margin-bottom: var(--content-gap);
+}
+
+.part-index{
+  font-family: 'Inter', sans-serif;
+  font-size: 15px;
+  color: var(--brass);
+  white-space: nowrap;
+  padding-top: 4px;
+}
+
+h2.part-title{
+  font-family: 'Newsreader', serif;
+  font-weight: 500;
+  font-size: clamp(26px, 4vw, 34px);
+  margin: 0;
+  letter-spacing: -0.005em;
+  text-align: left;
+}
+
+.part-head > h3{
+  margin: var(--content-gap) 0 0;
+  text-align: left;
+}
+
+.part-head > p{
+  margin: 8px 0 0;
+  max-width: 62ch;
+  text-align: left;
+}
+
+.part-intro{
+  max-width: 62ch;
+  color: var(--ink-soft);
+  font-size: 18px;
+  margin: 22px auto 44px;
+  text-align: left;
+}
+
+/* ---------- Comparison frames ---------- */
+
+.compare{
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--content-gap);
+  margin: 0 0 var(--content-gap);
+  text-align: left;
+}
+
+.compare-divider{
+  display: none;
+}
+
+.frame{
+  padding: 30px 30px 26px;
+  border: 1px solid var(--line);
+  background: var(--paper-deep);
+}
+
+.frame-figure{
+  aspect-ratio: 4 / 3;
+  border: 1px solid var(--line);
+  background: #f3f0e8;
+  margin-bottom: 18px;
+  overflow:hidden;
+}
+
+.frame-figure img,
+.frame-figure svg{ width: 100%; height: 100%; display:block; object-fit: contain; }
+
+/* ---------- Part 1 ---------- */
+
+.part1-layout{
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(190px, 3fr);
+  align-items: start;
+  gap: 32px;
+  text-align: left;
+}
+
+.part1-image{
+  margin: 0;
+}
+
+.part1-image img{
+  display: block;
+  width: auto;
+  max-width: 100%;
+  height: 290px;
+  margin-left: auto;
+}
+
+.part1-image figcaption{
+  margin-top: 8px;
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--ink-soft);
+}
+
+.frame-caption{
+  display:flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.frame-name{
+  font-family: 'Newsreader', serif;
+  font-size: 19px;
+  font-style: italic;
+  margin: 0 0 2px;
+}
+
+.frame-meta{
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.frame-tag{
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  color: var(--teal);
+  white-space: nowrap;
+}
+
+@media (max-width: 640px){
+  .compare{ grid-template-columns: 1fr; }
+  .examples-grid{ grid-template-columns: 1fr; }
+  .part1-layout{ grid-template-columns: 1fr; }
+  .part1-image img{
+    height: auto;
+    max-height: 350px;
+    margin: 0 auto;
+  }
+}
+
+/* ---------- Explanation blocks ---------- */
+
+.explain{
+  display: block;
+  max-width: 62ch;
+  margin: 0 auto var(--content-gap);
+  text-align: left;
+}
+
+.explain h3{
+  margin: 0 0 18px;
+  text-align: left;
+}
+
+.examples h4{
+  margin: 0 0 var(--content-gap);
+  text-align: left;
+}
+
+.examples-grid{
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.examples-grid h4{
+  grid-column: 1 / -1;
+  margin: 0;
+  text-align: left;
+}
+
+@media (min-width: 641px) and (max-width: 800px){
+  .examples-grid{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.explain-diagram{
+  border: 1px solid var(--line);
+  background: #f3f0e8;
+  padding: 18px;
+  margin: 0 auto 24px;
+}
+
+.explain-diagram svg{ width: 100%; height: auto; display:block; }
+
+.diagram-caption{
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  color: var(--ink-soft);
+  margin-top: 12px;
+  text-align: center;
+}
+
+.explain-text p{
+  margin: 0 0 18px;
+  color: var(--ink);
+  text-align: justify;
+  text-align-last: left;
+}
+
+.explain-text p:last-child{ margin-bottom: 0; }
+
+/* ---------- Code ---------- */
+
+code{
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  font-size: 12px;
+  color: var(--teal);
+  background: rgba(47, 74, 71, 0.12);
+  border: 1px solid rgba(47, 74, 71, 0.22);
+  border-radius: 3px;
+  padding: 0.08em 0.3em;
+  text-align: left;
+}
+
+/* Standalone snippets are displayed as left-aligned code blocks. */
+.explain-text > code{
+  display: block;
+  font-size: 12px;
+  margin: 0 0 18px;
+  padding: 0.8em 1em;
+  line-height: 1.55;
+  text-align: left;
+  overflow-x: auto;
+}
+
+/* ---------- Part 3 / dolly zoom ---------- */
+
+.dolly-diagram{
+  border: 1px solid var(--line);
+  background: #f3f0e8;
+  padding: 28px;
+  margin: 0 auto 28px;
+  text-align: center;
+}
+
+.dolly-diagram svg{ width: 100%; height: auto; display: block; }
+
+.dolly-diagram img{
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 0 auto 12px;
+}
+
+.note-box{
+  border-left: 2px solid var(--brass);
+  padding: 4px 0 4px 22px;
+  color: var(--ink-soft);
+  font-size: 17px;
+  max-width: 58ch;
+  margin: 0 auto;
+  text-align: left;
+}
+
+/* ---------- Footer ---------- */
+
+footer{
+  padding: 48px 0 64px;
+  text-align: center;
+}
+
+footer p{
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  color: var(--ink-soft);
+  margin: 0;
+}

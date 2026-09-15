@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Project 0 — Becoming Friends with Your Camera</title>
+<link rel="stylesheet" href="style.css">
+<script>
+  window.MathJax = {
+    tex: {
+      inlineMath: [['$', '$'], ['\\(', '\\)']],
+      displayMath: [['$$', '$$'], ['\\[', '\\]']]
+    }
+  };
+</script>
+<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <p class="kicker">Project 1</p>
+    <h1 class="title">Images of the Russian Empire</h1>
+    <p> Colorizing the Prokudin-Gorskii Photo Collection</p>
+</header>
+
+<section class="part" id="part1">
+  <div class="wrap">
+    <div class="part-head">
+      <h2 class="part-title">Background</h2>
+    </div>
+    <div class="part1-layout">
+      <div class="explain-text part1-text">
+        <p>The images in this project come from Sergei Mikhailovich Prokudin-Gorskii's photographs of the Russian Empire. In 1907, when color photography was the wave of the future, he captured color images by photographing the same scene three times through separate blue, green, and red filters and recording the negatives on a single glass plate.</p>
+        <p>The digitized images do not initially look like normal color photographs. Each scan contains three vertically stacked grayscale images, corresponding to the blue, green, and red channels in that order, but each layer contains obvious color fringes around objects and edges and doesnt look alined.</p>
+        <p>In this project, my goal is to separate these three images, align them spatially, and stack them together to reconstruct a single RGB color image.</p>
+      </div>
+      <figure class="part1-image">
+        <img src="../data/cathedral.jpg" alt="Original cathedral glass plate">
+        <figcaption>The raw glass plate: blue, green, and red channels.</figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<section class="part" id="part2">
+  <div class="wrap">
+    <div class="part-head">
+      <h2 class="part-title">Step 1: The Brute Force Approach</h2>
+    </div>
+    <div class="explain">
+      <h3>Motivation Behind Exhaustive Search</h3>
+      <div class="explain-text">
+        <p>I first implemented a simple single-scale alignment algorithm using exhaustive search. The idea is straightforward: if the correct displacement is somewhere within a small range, we can simply test every possible <code>(x, y)</code> translation and select the one that produces the best match.</p>
+        <p>For example, with a search range of <code>[-15, 15]</code>, there are $31*31=961$ possible translations for each channel. For each candidate translation, I shifted one channel and calculated an image similarity score against the reference channel. I used the blue channel as the reference and aligned the green and red channels to it.</p>
+      </div>
+    </div>
+    <div class="explain">
+      <h3>L2 Distance</h3>
+      <div class="explain-text">
+        <p>The first metric I tried was the L2 (Euclidian) distance. For two images img1 and img2, the L2 error is $L_2(I_1,I_2) = \sqrt{ \sum_{x,y} (I_1(x,y)-I_2(x,y))^2 }$. We are interested in the displacement that minimizes this value as best alignment. If two channels are correctly aligned, corresponding pixels should have similar intensity values, resulting in a smaller overall difference.</p>
+        <p>In my implementation, I used the squared version of the L2 distance to simplify calculation:</p>
+        <p><code>score = np.sum((shifted - im2) ** 2)</code></p>
+      </div>
+    </div>
+    <div class="explain">
+      <h3>Normalized Cross-Correlation</h3>
+      <div class="explain-text">
+        <p>To metigate the brightness issue, I also implemented Normalized Cross-Correlation (NCC). Instead of directly comparing raw pixel values, NCC first subtracts the mean from each image and normalizes the resulting vectors: $\hat{I}_1 = \frac{I_1-\mu_1} {\|I_1-\mu_1\|}$ and $\hat{I}_2 = \frac{I_2-\mu_2} {\|I_2-\mu_2\|}$.</p>
+        <p>The NCC score is then their dot product: $NCC(I_1,I_2) = \hat{I}_1 \cdot \hat{I}_2$</p>
+        <p>Unlike L2 distance, where smaller is better, we want to maximize the NCC score for better alignment. By subtracting each image's mean, NCC approach focuses more on whether the patterns and structures in the images line up rather than requiring their absolute intensities to be the same. </p>
+      </div>
+    </div>
+    <div class="explain">
+      <h3>Comparing L2 and NCC</h3>
+      <div class="explain-text">
+        <p>I tested both metrics on the low-resolution JPEG images. In general, both metrics were able to find good translations for images where the channels had relatively similar intensity patterns. However, NCC was more appropriate for cases where the same objects had noticeably different brightness across channels.</p>
+      </div>
+      <!-- TODO: Insert photos -->
+      <div class="compare">
+        <div class="frame">
+          <div class="frame-figure">
+              <img src="../save/l2_cathedral.png" alt="L2 Cathedral">
+          </div>
+          <div class="frame-caption">
+            <div>
+              <p class="frame-name">L2 Cathedral</p>
+            </div>
+          </div>
+        </div>
+        <div class="compare-divider"></div>
+        <div class="frame">
+          <div class="frame-figure">
+              <img src="../save/NCC_cathedral.png" alt="NCC Cathedral">
+          </div>
+          <div class="frame-caption">
+            <div>
+              <p class="frame-name">NCC Cathedral</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame">
+          <div class="frame-figure">
+              <img src="../save/l2_monastery.png" alt="L2 Monastery">
+          </div>
+          <div class="frame-caption">
+            <div>
+              <p class="frame-name">L2 Monastery</p>
+            </div>
+          </div>
+        </div>
+        <div class="compare-divider"></div>
+        <div class="frame">
+          <div class="frame-figure">
+              <img src="../save/NCC_monastery.png" alt="NCC Monastery">
+          </div>
+          <div class="frame-caption">
+            <div>
+              <p class="frame-name">NCC Monastery</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame">
+          <div class="frame-figure">
+              <img src="../save/l2_tobolsk.png" alt="L2 Tobolsk">
+          </div>
+          <div class="frame-caption">
+            <div>
+              <p class="frame-name">L2 Tobolsk</p>
+            </div>
+          </div>
+        </div>
+        <div class="compare-divider"></div>
+        <div class="frame">
+          <div class="frame-figure">
+              <img src="../save/NCC_tobolsk.png" alt="NCC Tobolsk">
+          </div>
+          <div class="frame-caption">
+            <div>
+              <p class="frame-name">NCC Tobolsk</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="explain-text">
+        <p>Because the goal is to find structural correspondence between different color channels, I ultimately used NCC for the pyramid alignment in my implementation.</p>
+      </div>
+    </div>
+    <div class="explain">
+      <h3>Debugging the Alignment</h3>
+      <div class="explain-text">
+        <p>One important debugging issue was how to handle pixels that move outside the image boundaries.</p>
+        <p>My first approach used np.roll to shift the image. However, np.roll wraps pixels around the opposite side of the image. For example, pixels shifted off the left side reappear on the right side. These wrapped pixels are not actually part of the corresponding image region, so including them in the similarity calculation can produce incorrect scores.</p>
+        <p>To fix this, my NCC implementation explicitly computes the overlapping regions of the two images for every candidate displacement. For a positive or negative dx or dy, I create corresponding slices so that only pixels that genuinely overlap are compared.</p>
+        <p>For example, instead of comparing the entire shifted image, the algorithm effectively compares: $I_1[\text{overlap}] \quad\text{with}\quad I_2[\text{corresponding overlap}]$.</p>
+        <p>After finding the best displacement, I use np.roll to apply the final translation to the original image. Since the rolled image contains artificial wrap-around pixels, I then crop a margin from the borders before stacking the three channels.</p>
+      </div>
+      <div class="compare">
+        <div class="frame">
+          <div class="frame-figure">
+              <img src="../save/NCC_monastery.png" alt="NCC Monastery">
+          </div>
+          <div class="frame-caption">
+            <div>
+              <p class="frame-name">NCC Monastery (before debugging)</p>
+              <p>Green offset: (1, -3) <br>
+                Red offset: (1, 9)</p>
+            </div>
+          </div>
+        </div>
+        <div class="compare-divider"></div>
+        <div class="frame">
+          <div class="frame-figure">
+              <img src="../save/NCC_debugged.png" alt="NCC Monastery after debugging">
+          </div>
+          <div class="frame-caption">
+            <div>
+              <p class="frame-name">NCC Monastery (after debugging)</p>
+              <p>
+                Green offset: (2, -3)<br>
+                Red offset: (2, 3)</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="part" id="part3">
+  <div class="wrap">
+    <div class="part-head">
+      <h2 class="part-title">Step 2: Optimization — Faster Alignment for Bigger Images</h2>
+    </div>
+    <div class="explain">
+      <h3>Why Brute Force Becomes Too Slow</h3>
+      <div class="explain-text">
+        <p>Although exhaustive search works well on small JPEG images, it becomes much more expensive for the high-resolution TIFF images. The alignment looks way more blurred and you can immediately tell three colors separately.</p>
+        <p>This problem is caused because the number of pixels increases dramatically with image resolution. At the same time, the required displacement can also be much larger than the [-15, 15] pixel window that works well for the smaller images.</p>
+        <p>To optimize this, I used image pyramid to make the search more efficient.</p>
+      </div>
+    </div>
+    <div class="explain">
+      <h3>Multi-Scale Image Pyramid</h3>
+      <div class="explain-text">
+        <p>I implemented a multi-scale image pyramid that repeatedly downsamples the image by a factor of two. For example, with four levels: $I_0 \rightarrow I_1 \rightarrow I_2 \rightarrow I_3$ where each subsequent level is approximately half the width and height of the previous level.</p>
+        <p>I built the pyramid using sk.transform.rescale with anti-aliasing:</p>
+        <code>smaller = sk.transform.rescale(<br>
+          pyramid[-1],<br>
+          0.5,<br>
+          anti_aliasing=True<br>
+        )<br>
+        </code>
+        <p>The anti-aliasing step helps prevent artifacts when reducing the image resolution.</p>
+      </div>
+    </div>
+    <div class="explain">
+      <h3>Coarse-to-Fine Alignment</h3>
+      <div class="explain-text">
+        <p>Rather than beginning the search at full resolution, I start at the smallest image in the pyramid. At this coarse resolution, a large displacement in the original image corresponds to a much smaller displacement. Therefore, a relatively small search window can cover a much larger effective region of the original image.</p>
+        <p>IOnce the best displacement is found at the coarse level, I move to the next larger image. Before searching again, I multiply the current displacement by two because the image dimensions double between pyramid levels, so the estimated displacement must also be scaled accordingly.</p>
+        <code>if level &lt; levels - 1:<br>
+          dx *= 2<br>
+          dy *= 2<br>
+        </code>
+        <p>The major advantage of this approach is that we do not need to search a huge displacement range at full resolution. We can find the approximate alignment using a small search window and then refine it as we move back to the original resolution.</p>
+      </div>
+    </div>
+    <div class="explain">
+      <h3>Final Alignment</h3>
+      <div class="explain-text">
+        <p>After running pyramid alignment separately for the green and red channels, I obtained final displacement vectors:</p>
+        <code>FINAL Green offset: (dx, dy)
+          FINAL Red offset: (dx, dy)
+        </code>
+        <p>These offsets were then applied to the original-resolution channels. I cropped the borders affected by the shifting and combined the channels using im_out, which is implemented as following:</p>
+        <code>im_out = np.dstack([<br>
+          r_aligned,<br>
+          g_aligned,<br>
+          b_cropped<br>
+        ])<br>
+        </code>
+        <p>The resulting image reconstructs the original scene as a single RGB photograph.</p>
+      </div>
+    </div>
+    <div class="examples">
+      <h4>Provided Examples</h4>
+      <div class="compare examples-grid">
+        <div class="frame">
+          <div class="frame-figure">
+              <img src="../save/church.png" alt="Church">
+          </div>
+          <div class="frame-caption">
+            <div>
+              <p class="frame-name">Church</p>
+              <p class="frame-meta">FINAL Green offset: (24, 49)<br>
+                FINAL Red offset: (40, 107)</p>
+            </div>
+          </div>
+        </div>
+        <div class="compare-divider"></div>
+        <div class="frame">
+          <div class="frame-figure">
+              <img src="../save/emir.png" alt="Emir">
+          </div>
+          <div class="frame-caption">
+            <div>
+              <p class="frame-name">Emir</p>
+              <p class="frame-meta">FINAL Green offset: (4, 25)<br>
+                FINAL Red offset: (-4, 58)</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame">
+          <div class="frame-figure">
+              <img src="../save/harvesters.png" alt="Hearvesters">
+          </div>
+          <div class="frame-caption">
+            <div>
+              <p class="frame-name">Hearvesters</p>
+              <p class="frame-meta">FINAL Green offset: (17, 60)<br>
+                FINAL Red offset: (14, 124)</p>
+            </div>
+          </div>
+        </div>
+        <div class="compare-divider"></div>
+        <div class="frame">
+          <div class="frame-figure">
+              <img src="../save/icon.png" alt="Icon">
+          </div>
+          <div class="frame-caption">
+            <div>
+              <p class="frame-name">Icon</p>
+              <p class="frame-meta">FINAL Green offset: (17, 42)<br>
+                FINAL Red offset: (23, 90)</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame">
+          <div class="frame-figure">
+              <img src="../save/ilemselga.png" alt="Ilemselga">
+          </div>
+          <div class="frame-caption">
+            <div>
+              <p class="frame-name">Ilemselga</p>
+              <p class="frame-meta">FINAL Green offset: (7, 40)<br>
+                FINAL Red offset: (11, 131)</p>
+            </div>
+          </div>
+        </div>
+        <div class="compare-divider"></div>
+        <div class="frame">
+          <div class="frame-figure">
+              <img src="../save/melons.png" alt="Melons">
+          </div>
+          <div class="frame-caption">
+            <div>
+              <p class="frame-name">Melons</p>
+              <p class="frame-meta">FINAL Green offset: (10, 80)<br>
+                FINAL Red offset: (13, 177)</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame">
+          <div class="frame-figure">
+              <img src="../save/religous_painting.png" alt="Religous Painting">
+          </div>
+          <div class="frame-caption">
+            <div>
+              <p class="frame-name">Religous Painting</p>
+              <p class="frame-meta">FINAL Green offset: (7, 30)<br>
+                FINAL Red offset: (6, 70)</p>
+            </div>
+          </div>
+        </div>
+        <div class="compare-divider"></div>
+        <div class="frame">
+          <div class="frame-figure">
+              <img src="../save/self_portrait.png" alt="Self portrait">
+          </div>
+          <div class="frame-caption">
+            <div>
+              <p class="frame-name">Self Portrait</p>
+              <p class="frame-meta">FINAL Green offset: (29, 78)<br>
+                FINAL Red offset: (37, 176)</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame">
+          <div class="frame-figure">
+              <img src="../save/siren.png" alt="Siren">
+          </div>
+          <div class="frame-caption">
+            <div>
+              <p class="frame-name">Siren</p>
+              <p class="frame-meta">FINAL Green offset: (-6, 49)<br>
+                FINAL Red offset: (-24, 96)</p>
+            </div>
+          </div>
+        </div>
+        <div class="compare-divider"></div>
+        <div class="frame">
+          <div class="frame-figure">
+              <img src="../save/three_gen.png" alt="Three Generations">
+          </div>
+          <div class="frame-caption">
+            <div>
+              <p class="frame-name">Three Generations</p>
+              <p class="frame-meta">FINAL Green offset: (12, 54)<br>
+                FINAL Red offset: (9, 111)</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame">
+          <div class="frame-figure">
+              <img src="../save/wharf.png" alt="Wharf">
+          </div>
+          <div class="frame-caption">
+            <div>
+              <p class="frame-name">Wharf</p>
+              <p class="frame-meta">FINAL Green offset: (-7, 15)<br>
+                FINAL Red offset: (-16, 83)</p>
+            </div>
+          </div>
+        </div>
+        <h4>Some more!</h4>
+        <div class="frame">
+          <div class="frame-figure">
+              <img src="../save/flowers.png" alt="Flowers">
+          </div>
+          <div class="frame-caption">
+            <div>
+              <p class="frame-name">Flowers</p>
+              <p class="frame-meta">FINAL Green offset: (8, 8)<br>
+                FINAL Red offset: (13, 60)</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame">
+          <div class="frame-figure">
+              <img src="../save/camel.png" alt="Camel">
+          </div>
+          <div class="frame-caption">
+            <div>
+              <p class="frame-name">Camel</p>
+              <p class="frame-meta">FINAL Green offset: (15, 22)<br>
+                FINAL Red offset: (38, 81)</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame">
+          <div class="frame-figure">
+              <img src="../save/capri.png" alt="Capri">
+          </div>
+          <div class="frame-caption">
+            <div>
+              <p class="frame-name">Capri</p>
+              <p class="frame-meta">FINAL Green offset: (-16, 33)<br>
+                FINAL Red offset: (-25, 78)</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+  </div>
+</section>
+
+<section class="part" id="part4">
+  <div class="wrap">
+    <div class="part-head">
+      <h2 class="part-title">Bells and Whistles</h2>
+      <h3>Automatic Cropping</h3>
+      <p>I calculated the area where all three channels overlap and cropped the image to that area.</p>
+      <h3>Automatic White Balance</h3>
+      <p>I implemented gray-world white balance, where I calculated the average brightness of each color channel and then scaled the channels so that their average brightness was approximately the same.</p>
+    </div>
+    <div class="compare">
+      <div class="frame">
+        <div class="frame-figure">
+            <img src="../save/church.png" alt="Church">
+        </div>
+        <div class="frame-caption">
+          <div>
+            <p class="frame-name">Church (before WB correction)</p>
+          </div>
+        </div>
+      </div>
+      <div class="compare-divider"></div>
+      <div class="frame">
+        <div class="frame-figure">
+            <img src="../save/church_wb.png" alt="Church After WB">
+        </div>
+        <div class="frame-caption">
+          <div>
+            <p class="frame-name">Church (after WB correction)</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame">
+        <div class="frame-figure">
+            <img src="../save/siren.png" alt="Siren">
+        </div>
+        <div class="frame-caption">
+          <div>
+            <p class="frame-name">Siren (before WB correction)</p>
+          </div>
+        </div>
+      </div>
+      <div class="compare-divider"></div>
+      <div class="frame">
+        <div class="frame-figure">
+            <img src="../save/siren_wb.png" alt="Siren After WB">
+        </div>
+        <div class="frame-caption">
+          <div>
+            <p class="frame-name">Siren (after WB correction)</p>
+          </div>
+        </div>
+      </div>
+    
+      <div class="frame">
+        <div class="frame-figure">
+            <img src="../save/camel.png" alt="Camel">
+        </div>
+        <div class="frame-caption">
+          <div>
+            <p class="frame-name">Camel (before WB correction)</p>
+          </div>
+        </div>
+      </div>
+      <div class="compare-divider"></div>
+      <div class="frame">
+        <div class="frame-figure">
+            <img src="../save/camel_wb.png" alt="Camel After WB">
+        </div>
+        <div class="frame-caption">
+          <div>
+            <p class="frame-name">Camel (after WB correction)</p>
+          </div>
+        </div>
+      </div>
+    
+    
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p>Project 1 — Images of the Russian Empire</p>
+  </div>
+</footer>
+
+</body>
+</html>
