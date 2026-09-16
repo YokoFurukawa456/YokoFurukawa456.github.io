@@ -15,7 +15,7 @@ import skimage.io as skio
 #imname = 'hw1/data/tobolsk.jpg'
 
 #imname = 'hw1/data/flowers.tif'
-imname = 'hw1/data/camel.tif'
+#imname = 'hw1/data/camel.tif'
 #imname = 'hw1/data/capri.tif'
 
 # TIFFS
