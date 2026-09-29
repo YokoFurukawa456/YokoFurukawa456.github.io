@@ -110,7 +110,7 @@ import matplotlib.pyplot as plt
 image = imread("data/my_photo.jpg", as_gray=True)
 # print(image.shape)
 
-kernel = np.ones((3, 3)) / 9   # simple 3x3 box blur, just for testing
+kernel = np.ones((3, 3)) / 9  
 
 #scipy
 scipy_result = convolve2d(image, kernel, mode="same", boundary="fill", fillvalue=0)
@@ -123,6 +123,31 @@ my_result = convolce2d_2loops(image, kernel, padding="same")
 image = image.astype(float)
 if image.max() > 1:
     image /= 255.0
+
+import time
+
+# use a crop so the 4-loop version finishes in reasonable time
+test_image = image[:256, :256]
+test_kernel = np.ones((9, 9)) / 81   # 9x9 box filter
+
+start = time.perf_counter()
+result_4 = convolce2d_4loops(test_image, test_kernel, padding="same")
+time_4 = time.perf_counter() - start
+
+start = time.perf_counter()
+result_2 = convolce2d_2loops(test_image, test_kernel, padding="same")
+time_2 = time.perf_counter() - start
+
+start = time.perf_counter()
+result_scipy = convolve2d(test_image, test_kernel, mode="same", boundary="fill", fillvalue=0)
+time_scipy = time.perf_counter() - start
+
+print(f"Image {test_image.shape}, kernel {test_kernel.shape}")
+print(f"4 loops: {time_4:.3f} s")
+print(f"2 loops: {time_2:.3f} s")
+print(f"SciPy:   {time_scipy:.5f} s")
+print("Max diff (4 loops vs SciPy):", np.max(np.abs(result_4 - result_scipy)))
+print("Max diff (2 loops vs SciPy):", np.max(np.abs(result_2 - result_scipy)))
 
 # #display
 # plt.imshow(image, cmap="gray")
@@ -879,10 +904,10 @@ H, W = apple_image.shape[:2]
 mask = np.zeros((H, W))
 mask[:, :W // 2] = 1
 
-plt.figure(figsize=(8, 5))
-plt.imshow(mask, cmap="gray")
-plt.title("Vertical Step Mask")
-plt.axis("off")
+# plt.figure(figsize=(8, 5))
+# plt.imshow(mask, cmap="gray")
+# plt.title("Vertical Step Mask")
+# plt.axis("off")
 
 G_mask = gaussian_stack(mask, num_levels=5, ksize=31, sigma=5)
 
@@ -909,37 +934,37 @@ L_blended = np.array(L_blended)
 oraple = np.sum(L_blended, axis=0)
 oraple = np.clip(oraple, 0, 1)
 
-plt.figure(figsize=(8, 6))
-plt.imshow(oraple)
-plt.title("Oraple — Multiresolution Blend")
-plt.axis("off")
+# plt.figure(figsize=(8, 6))
+# plt.imshow(oraple)
+# plt.title("Oraple — Multiresolution Blend")
+# plt.axis("off")
 
 #neive blending
 naive = (mask[:, :, np.newaxis] * apple_image + (1 - mask[:, :, np.newaxis]) * orange_image)
 
-fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+# fig, axes = plt.subplots(1, 2, figsize=(14, 6))
 
-axes[0].imshow(naive)
-axes[0].set_title("Naive Cut-and-Paste")
+# axes[0].imshow(naive)
+# axes[0].set_title("Naive Cut-and-Paste")
 
-axes[1].imshow(oraple)
-axes[1].set_title("Multiresolution Blend")
+# axes[1].imshow(oraple)
+# axes[1].set_title("Multiresolution Blend")
 
-for ax in axes:
-    ax.axis("off")
+# for ax in axes:
+#     ax.axis("off")
 
-plt.show()
+# plt.show()
 
 #gaussian mask stack
 
-fig, axes = plt.subplots(1, 5, figsize=(20, 4))
+# fig, axes = plt.subplots(1, 5, figsize=(20, 4))
 
-for i, ax in enumerate(axes):
-    ax.imshow(G_mask[i], cmap="gray")
-    ax.set_title(f"Mask Level {i}")
-    ax.axis("off")
+# for i, ax in enumerate(axes):
+#     ax.imshow(G_mask[i], cmap="gray")
+#     ax.set_title(f"Mask Level {i}")
+#     ax.axis("off")
 
-plt.show()
+# plt.show()
 
 #irregular mask
 
@@ -957,7 +982,7 @@ mask_circle = (
 
 mask_circle = mask_circle.astype(float)
 
-plt.figure(figsize=(6, 6))
-plt.imshow(mask_circle, cmap="gray")
-plt.title("Circular Mask")
-plt.axis("off")
+# plt.figure(figsize=(6, 6))
+# plt.imshow(mask_circle, cmap="gray")
+# plt.title("Circular Mask")
+# plt.axis("off")

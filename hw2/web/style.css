@@ -268,3 +268,67 @@ footer p{
   color: var(--ink-soft);
   margin: 0;
 }
+
+/* ---------- Project 2 additions ---------- */
+
+.explain h3{
+  font-family: 'Newsreader', serif;
+  font-weight: 500;
+  font-size: 23px;
+  margin: 48px 0 14px;
+  text-align: left;
+}
+
+figure.wide{
+  margin: 28px auto 36px;
+  max-width: 100%;
+}
+
+figure.wide img{
+  width: 100%;
+  height: auto;
+  display: block;
+  border: 1px solid var(--line);
+  background: #fff;
+}
+
+figure.wide.narrow{ max-width: 460px; }
+
+figure.wide figcaption{
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  color: var(--ink-soft);
+  margin-top: 10px;
+  text-align: center;
+}
+
+.todo{
+  border: 1px dashed var(--brass);
+  background: rgba(138,106,60,0.08);
+  color: var(--brass);
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  padding: 18px 20px;
+  margin: 24px auto;
+  text-align: left;
+}
+
+.params{
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  color: var(--ink-soft);
+  border-collapse: collapse;
+  margin: 8px auto 24px;
+}
+
+.params td, .params th{
+  border-bottom: 1px solid var(--line-soft);
+  padding: 6px 14px;
+  text-align: left;
+}
+
+code{
+  font-size: 0.88em;
+  background: var(--paper-deep);
+  padding: 1px 5px;
+}
