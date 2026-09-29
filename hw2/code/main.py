@@ -534,125 +534,125 @@ im1_aligned, im2_aligned = align_images(im1, im2)
 ## cutoff values for the high and low frequencies
 
 
-#2.2.1 helper
-#gaussian 2d filter helper
-def gaussian_filter_2d(ksize, sigma):
-    kernel_1d = cv2.getGaussianKernel(ksize, sigma)
-    return kernel_1d @ kernel_1d.T
+# #2.2.1 helper
+# #gaussian 2d filter helper
+# def gaussian_filter_2d(ksize, sigma):
+#     kernel_1d = cv2.getGaussianKernel(ksize, sigma)
+#     return kernel_1d @ kernel_1d.T
 
-#gaussian blur helper
-def gaussian_blur(image, ksize, sigma):
-    kernel = gaussian_filter_2d(ksize, sigma)
+# #gaussian blur helper
+# def gaussian_blur(image, ksize, sigma):
+#     kernel = gaussian_filter_2d(ksize, sigma)
     
-    return convolve2d(
-        image,
-        kernel,
-        mode="same",
-        boundary="symm"
-    )
+#     return convolve2d(
+#         image,
+#         kernel,
+#         mode="same",
+#         boundary="symm"
+#     )
 
-#gaussian blur for RGB helper
-def gaussian_blur_color(image, ksize, sigma):
-    kernel = gaussian_filter_2d(ksize, sigma)
+# #gaussian blur for RGB helper
+# def gaussian_blur_color(image, ksize, sigma):
+#     kernel = gaussian_filter_2d(ksize, sigma)
     
-    result = np.zeros_like(image, dtype=float)
+#     result = np.zeros_like(image, dtype=float)
     
-    for channel in range(image.shape[2]):
-        result[..., channel] = convolve2d(
-            image[..., channel],
-            kernel,
-            mode="same",
-            boundary="symm"
-        )
+#     for channel in range(image.shape[2]):
+#         result[..., channel] = convolve2d(
+#             image[..., channel],
+#             kernel,
+#             mode="same",
+#             boundary="symm"
+#         )
     
-    return result
+#     return result
 
-#low pass/high pass
-sigma_low = 5
-sigma_high = 3
+# #low pass/high pass
+# sigma_low = 5
+# sigma_high = 3
 
-low_pass = gaussian_blur_color(
-    im2_aligned,
-    ksize=21,
-    sigma=sigma_low
-)
+# low_pass = gaussian_blur_color(
+#     im2_aligned,
+#     ksize=21,
+#     sigma=sigma_low
+# )
 
-blurred_high = gaussian_blur_color(
-    im1_aligned,
-    ksize=21,
-    sigma=sigma_high
-)
+# blurred_high = gaussian_blur_color(
+#     im1_aligned,
+#     ksize=21,
+#     sigma=sigma_high
+# )
 
-high_pass = im1_aligned - blurred_high
+# high_pass = im1_aligned - blurred_high
 
-hybrid = low_pass + high_pass
-hybrid = np.clip(hybrid, 0, 1)
+# hybrid = low_pass + high_pass
+# hybrid = np.clip(hybrid, 0, 1)
 
-fig, axes = plt.subplots(1, 3, figsize=(18, 6))
+# fig, axes = plt.subplots(1, 3, figsize=(18, 6))
 
-axes[0].imshow(im2)
-axes[0].set_title("Low-Frequency Image")
+# axes[0].imshow(im2)
+# axes[0].set_title("Low-Frequency Image")
 
-axes[1].imshow(im1)
-axes[1].set_title("High-Frequency Image")
+# axes[1].imshow(im1)
+# axes[1].set_title("High-Frequency Image")
 
-axes[2].imshow(hybrid)
-axes[2].set_title("Hybrid Image")
+# axes[2].imshow(hybrid)
+# axes[2].set_title("Hybrid Image")
 
-for ax in axes:
-    ax.axis("off")
+# for ax in axes:
+#     ax.axis("off")
 
-plt.show()
+# plt.show()
 
 #2.2.2 fourier analysis
-def fourier_magnitude(image):
-    if image.ndim == 3:
-        image = np.mean(image, axis=2)
+# def fourier_magnitude(image):
+#     if image.ndim == 3:
+#         image = np.mean(image, axis=2)
         
-    fft = np.fft.fft2(image)
-    fft_shifted = np.fft.fftshift(fft)
+#     fft = np.fft.fft2(image)
+#     fft_shifted = np.fft.fftshift(fft)
     
-    return np.log1p(np.abs(fft_shifted))
+#     return np.log1p(np.abs(fft_shifted))
 
-images = [
-    im2,
-    im1,
-    low_pass,
-    high_pass,
-    hybrid
-]
+# images = [
+#     im2,
+#     im1,
+#     low_pass,
+#     high_pass,
+#     hybrid
+# ]
 
-titles = [
-    "Input 1",
-    "Input 2",
-    "Low-Pass Image",
-    "High-Pass Image",
-    "Hybrid Image"
-]
+# titles = [
+#     "Input 1",
+#     "Input 2",
+#     "Low-Pass Image",
+#     "High-Pass Image",
+#     "Hybrid Image"
+# ]
 
-fig, axes = plt.subplots(1, 5, figsize=(20, 4))
+# fig, axes = plt.subplots(1, 5, figsize=(20, 4))
 
-for ax, image, title in zip(axes, images, titles):
-    magnitude = fourier_magnitude(image)
+# for ax, image, title in zip(axes, images, titles):
+#     magnitude = fourier_magnitude(image)
     
-    ax.imshow(magnitude, cmap="gray")
-    ax.set_title(title)
-    ax.axis("off")
+#     ax.imshow(magnitude, cmap="gray")
+#     ax.set_title(title)
+#     ax.axis("off")
 
-plt.show()
+# plt.show()
 
 #2.2.3 frequency analysis
-fig, axes = plt.subplots(1, 5, figsize=(20, 4))
+# fig, axes = plt.subplots(1, 5, figsize=(20, 4))
 
-for ax, image, title in zip(axes, images, titles):
-    magnitude = fourier_magnitude(image)
+# for ax, image, title in zip(axes, images, titles):
+#     magnitude = fourier_magnitude(image)
     
-    ax.imshow(magnitude, cmap="gray")
-    ax.set_title(f"FFT: {title}")
-    ax.axis("off")
+#     ax.imshow(magnitude, cmap="gray")
+#     ax.set_title(f"FFT: {title}")
+#     ax.axis("off")
 
-plt.tight_layout()
-plt.show()
+# plt.tight_layout()
+# plt.show()
 
 #################################
 ## [Optional] Bells & Whistles ##
@@ -660,10 +660,304 @@ plt.show()
 
 # Multi-resolution blending and the oraple journey
 #############################################
-## Part 2.3: Gaussian anf leplavoam stacks ##
+## Part 2.3: Gaussian and leplavoam stacks ##
 #############################################
 
+#2.3.1 load images
+
+apple_image = plt.imread("data/apple.png").astype(float)
+orange_image = plt.imread("data/orange.png").astype(float)
+#only keep rgb (drop the alpha channel)
+apple_image = apple_image[..., :3].astype(float)
+orange_image = orange_image[..., :3].astype(float)
+#normalize
+if apple_image.max() > 1:
+    apple_image /= 255.0
+
+if orange_image.max() > 1:
+    orange_image /= 255.0
+#crop to a common size
+h = min(apple_image.shape[0], orange_image.shape[0])
+w = min(apple_image.shape[1], orange_image.shape[1])
+apple_image = apple_image[:h, :w]
+orange_image = orange_image[:h, :w]
+
+
+#2.3.2 Gaussian stack
+
+def make_gaussian_kernel(ksize=9, sigma=2):
+    kernel_1d = cv2.getGaussianKernel(ksize, sigma)
+    return kernel_1d @ kernel_1d.T
+#greyscale
+def gaussian_blur_gray(image, kernel):
+    return convolve2d(
+        image,
+        kernel,
+        mode="same",
+        boundary="symm"
+    )
+#RGB (named differently from the 2.2 gaussian_blur_color, which takes ksize/sigma)
+def gaussian_blur_rgb(image, kernel):
+    result = np.zeros_like(image, dtype=float)
+
+    for c in range(image.shape[2]):
+        result[:, :, c] = convolve2d(
+            image[:, :, c],
+            kernel,
+            mode="same",
+            boundary="symm"
+        )
+
+    return result
+
+#implement gaussian stack
+def gaussian_stack(image, num_levels=5, ksize=9, sigma=2):
+    kernel = make_gaussian_kernel(ksize, sigma)
+
+    stack = [image.astype(float)]
+
+    for i in range(1, num_levels):
+        previous = stack[-1]
+
+        if image.ndim == 2:
+            blurred = gaussian_blur_gray(previous, kernel)
+        else:
+            blurred = gaussian_blur_rgb(previous, kernel)
+
+        stack.append(blurred)
+
+    return np.array(stack)
+
+G_apple = gaussian_stack(apple_image, num_levels=5, ksize=9, sigma=2)
+G_orange = gaussian_stack(orange_image, num_levels=5, ksize=9, sigma=2)
+
+print(G_apple.shape)
+print(G_orange.shape)
+
+# fig, axes = plt.subplots(1, len(G_apple), figsize=(20, 5))
+
+# for i, ax in enumerate(axes):
+#     if G_apple[i].ndim == 2:
+#         ax.imshow(G_apple[i], cmap="gray")
+#     else:
+#         ax.imshow(np.clip(G_apple[i], 0, 1))
+
+#     ax.set_title(f"Gaussian Level {i}")
+#     ax.axis("off")
+
+# plt.show()
+
+# fig, axes = plt.subplots(1, len(G_apple), figsize=(20, 5))
+
+# for i, ax in enumerate(axes):
+#     if G_orange[i].ndim == 2:
+#         ax.imshow(G_orange[i], cmap="gray")
+#     else:
+#         ax.imshow(np.clip(G_orange[i], 0, 1))
+
+#     ax.set_title(f"Gaussian Level {i}")
+#     ax.axis("off")
+
+# plt.show()
+
+#2.3.3 laplasian stack
+def laplacian_stack(gaussian_stack):
+    num_levels = len(gaussian_stack)
+
+    laplacian = []
+
+    for i in range(num_levels - 1):
+        laplacian.append(
+            gaussian_stack[i] - gaussian_stack[i + 1]
+        )
+
+    # Last level contains the lowest-frequency information
+    laplacian.append(gaussian_stack[-1])
+
+    return np.array(laplacian)
+
+L_apple = laplacian_stack(G_apple)
+L_orange = laplacian_stack(G_orange)
+
+print(L_apple.shape)
+print(L_orange.shape)
+
+# fig, axes = plt.subplots(1, len(L_apple), figsize=(20, 5))
+
+# for i, ax in enumerate(axes):
+#     if L_apple[i].ndim == 2:
+#         ax.imshow(L_apple[i], cmap="gray")
+#     else:
+#         ax.imshow(np.clip(L_apple[i] + 0.5, 0, 1))
+
+#     ax.set_title(f"Laplacian Level {i}")
+#     ax.axis("off")
+
+# fig, axes = plt.subplots(1, len(L_orange), figsize=(20, 5))
+
+# for i, ax in enumerate(axes):
+#     if L_orange[i].ndim == 2:
+#         ax.imshow(L_orange[i], cmap="gray")
+#     else:
+#         ax.imshow(np.clip(L_orange[i] + 0.5, 0, 1))
+
+#     ax.set_title(f"Laplacian Level {i}")
+#     ax.axis("off")
+
+# plt.show()
+
+# fig, axes = plt.subplots(1, len(L_apple), figsize=(20, 5))
+
+# for i, ax in enumerate(axes):
+#     level = L_apple[i]
+
+#     if level.ndim == 3:
+#         minimum = level.min()
+#         maximum = level.max()
+
+#         display = (level - minimum) / (maximum - minimum + 1e-8)
+#         ax.imshow(display)
+#     else:
+#         ax.imshow(level, cmap="gray")
+
+#     ax.set_title(f"Laplacian Level {i}")
+#     ax.axis("off")
+
+# plt.show()
+
+# fig, axes = plt.subplots(1, len(L_orange), figsize=(20, 5))
+
+# for i, ax in enumerate(axes):
+#     level = L_orange[i]
+
+#     if level.ndim == 3:
+#         minimum = level.min()
+#         maximum = level.max()
+
+#         display = (level - minimum) / (maximum - minimum + 1e-8)
+#         ax.imshow(display)
+#     else:
+#         ax.imshow(level, cmap="gray")
+
+#     ax.set_title(f"Laplacian Level {i}")
+#     ax.axis("off")
+
+# plt.show()
+
+#2.3.4 reconstruct image from laplacian stack
+reconstructed_apple = np.sum(L_apple, axis=0)
+reconstructed_orange = np.sum(L_orange, axis=0)
+
+# print("Apple max reconstruction error:",
+#       np.max(np.abs(reconstructed_apple - apple_image)))
+# print("Orange max reconstruction error:",
+#       np.max(np.abs(reconstructed_orange - orange_image)))
+
+# fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+
+# axes[0].imshow(np.clip(reconstructed_apple, 0, 1))
+# axes[0].set_title("Reconstructed Apple")
+
+# axes[1].imshow(np.clip(reconstructed_orange, 0, 1))
+# axes[1].set_title("Reconstructed Orange")
+
+# for ax in axes:
+#     ax.axis("off")
+
+# plt.show()
 
 #############################################################
 ## Part 2.4: Multiresolution Blending (a.k.a. the oraple!) ##
 #############################################################
+
+#images
+#apple_image
+#orange_image
+
+#vertical mask
+H, W = apple_image.shape[:2]
+mask = np.zeros((H, W))
+mask[:, :W // 2] = 1
+
+plt.figure(figsize=(8, 5))
+plt.imshow(mask, cmap="gray")
+plt.title("Vertical Step Mask")
+plt.axis("off")
+
+G_mask = gaussian_stack(mask, num_levels=5, ksize=31, sigma=5)
+
+#blend
+L_blended = []
+
+for i in range(5):
+    m = G_mask[i]
+
+    # Add channel dimension for RGB images
+    if L_apple[i].ndim == 3:
+        m = m[:, :, np.newaxis]
+
+    blended_level = (
+        m * L_apple[i]
+        + (1 - m) * L_orange[i]
+    )
+
+    L_blended.append(blended_level)
+
+L_blended = np.array(L_blended)
+
+#create oraple
+oraple = np.sum(L_blended, axis=0)
+oraple = np.clip(oraple, 0, 1)
+
+plt.figure(figsize=(8, 6))
+plt.imshow(oraple)
+plt.title("Oraple — Multiresolution Blend")
+plt.axis("off")
+
+#neive blending
+naive = (mask[:, :, np.newaxis] * apple_image + (1 - mask[:, :, np.newaxis]) * orange_image)
+
+fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+
+axes[0].imshow(naive)
+axes[0].set_title("Naive Cut-and-Paste")
+
+axes[1].imshow(oraple)
+axes[1].set_title("Multiresolution Blend")
+
+for ax in axes:
+    ax.axis("off")
+
+plt.show()
+
+#gaussian mask stack
+
+fig, axes = plt.subplots(1, 5, figsize=(20, 4))
+
+for i, ax in enumerate(axes):
+    ax.imshow(G_mask[i], cmap="gray")
+    ax.set_title(f"Mask Level {i}")
+    ax.axis("off")
+
+plt.show()
+
+#irregular mask
+
+Y, X = np.ogrid[:H, :W]
+
+center_x = W // 2
+center_y = H // 2
+radius = min(H, W) // 3
+
+mask_circle = (
+    (X - center_x)**2 +
+    (Y - center_y)**2
+    < radius**2
+)
+
+mask_circle = mask_circle.astype(float)
+
+plt.figure(figsize=(6, 6))
+plt.imshow(mask_circle, cmap="gray")
+plt.title("Circular Mask")
+plt.axis("off")
