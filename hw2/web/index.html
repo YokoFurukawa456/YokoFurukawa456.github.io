@@ -22,6 +22,10 @@
     <p class="kicker">Project 2</p>
     <h1 class="title">Fun with Filters and Frequencies</h1>
     <p class="hero-sub">Convolution, edge detection, sharpening, hybrid images, and multiresolution blending.</p>
+    <figure class="wide">
+        <img src="../save/2.4_portal_only.png" alt="Laplacian stack of the portal blend">
+        <figcaption>Dr. Strange now teaches cs180 at UC Berkeley!</figcaption>
+    </figure>
   </div>
 </header>
 
@@ -381,7 +385,23 @@
     </div>
 
     <div class="explain"><h3>Custom blends</h3></div>
-    <div class="todo">TODO: add a second custom blend with a straight-line mask, using your own images: the two inputs, the mask, and the result.</div>
+    <div class="explain"><h3>Straight-line mask: half Peter Parker, half Spider-Man</h3></div>
+
+    <div class="explain">
+      <div class="explain-text">
+        <p>For a custom straight-line blend, I split a face down the middle: Peter Parker on the left and Spider-Man on the right. For the seam to land on the nose, the faces had to line up first. I reused the alignment code from Part 2.2 with fixed points instead of clicks: Peter's pupils and the centers of Spider-Man's eye lenses. The alignment code centers the image on the midpoint of the two points, so I slid each pair of eye points sideways until their midpoint sat on the nose's center line (between Peter's nostrils, and on Spider-Man's center web strand). This keeps the eye spacing and angle the same, but centers both images on the nose. Cropping away the alignment padding can also shift the center, so I cropped the same amount from the left and right. I checked the result by tracking a marker at each nose through the alignment: both noses land within 1 pixel of the center column, so a vertical step mask at half the width puts the seam right on the nose. The blend uses the same settings as the oraple: 5-level stacks ($\sigma = 2$) for the images and a 31×31, $\sigma = 5$ Gaussian stack for the mask.</p>
+      </div>
+    </div>
+
+    <figure class="wide">
+      <img src="../save/2.4_peter_spider.png" alt="Aligned Peter and Spider-Man, mask, naive blend, and multiresolution blend">
+      <figcaption>Aligned Peter, aligned Spider-Man, the vertical step mask (white = Peter), the naive cut-and-paste, and the multiresolution blend. The naive version has a hard vertical line through the face and background. In the multiresolution blend, the skin tone fades into the red mask and the dark backdrop fades into the street.</figcaption>
+    </figure>
+
+    <figure class="wide narrow">
+      <img src="../save/2.4_peter_spider_only.png" alt="Half Peter Parker, half Spider-Man">
+      <figcaption>Half Peter Parker, half Spider-Man.</figcaption>
+    </figure>
     <div class="explain"><h3>Irregular mask: Berkeley through Dr. Strange's portal</h3></div>
 
     <div class="explain">
@@ -404,6 +424,38 @@
       <img src="../save/2.4_portal_stack.png" alt="Laplacian stack of the portal blend">
       <figcaption>Laplacian stack of the portal blend, like Figure 10 in the paper. Rows 1–3: levels 0, 2 and 4 of the masked Berkeley, the masked Dr. Strange, and their blend. Bottom row: all levels summed. Fine detail like the Campanile's windows switches over sharply at the portal edge, while the blue sky and warm room colors fade into each other over a wide area.</figcaption>
     </figure>
+
+    <div class="explain"><h3>Six irregular masks: Thanos in every Infinity Stone</h3></div>
+
+    <div class="explain">
+      <div class="explain-text">
+        <p>For a more playful blend, I put Thanos's face inside each of the six Infinity Stones on the gauntlet, using the same elliptical-mask blend as the portal, repeated six times. For each stone, I placed an ellipse on the stone, resized a crop of Thanos's face to cover it, and blended the face into the current result with Laplacian stacks. The output of each blend became the input for the next stone. The stones are small, so I upscaled the gauntlet 2× to keep some facial detail. I also used a smaller mask blur (9×9, $\sigma = 2$) than for the portal; a $\sigma = 5$ mask would have spread each face across most of the stone's metal setting.</p>
+      </div>
+    </div>
+
+    <figure class="wide">
+      <img src="../save/2.4_thanos_stones_notint.png" alt="Thanos, the gauntlet, six stone masks, and the blended result">
+      <figcaption>Thanos, the Infinity Gauntlet, the six elliptical stone masks (combined for display), and the result.</figcaption>
+    </figure>
+
+    <div class="explain"><h3>Bells &amp; Whistles: Tinting each face with its stone's color</h3></div>
+
+    <div class="explain">
+      <div class="explain-text">
+        <p>With plain faces, the stones lose their colors, and each face looks like a sticker on the gauntlet rather than something inside a glowing stone. To fix this, I tinted each face with its stone's original color before blending. For each stone, I measured the average color inside its ellipse in the original gauntlet. Then I converted the face to grayscale, which keeps all the facial detail, and scaled it so the face's average color inside the stone matches that stone's color. The faces keep their detail but take on the stone's hue and brightness, so each stone still reads as the Soul, Reality, Space, Power, Mind or Time stone.</p>
+      </div>
+    </div>
+
+    <div class="compare">
+      <div class="frame">
+        <div class="frame-figure"><img src="../save/2.4_thanos_stones_notint_only.png" alt="Gauntlet with plain Thanos faces"></div>
+        <div class="frame-caption"><p class="frame-name">Plain faces</p></div>
+      </div>
+      <div class="frame">
+        <div class="frame-figure"><img src="../save/2.4_thanos_stones_only.png" alt="Gauntlet with color-tinted Thanos faces"></div>
+        <div class="frame-caption"><p class="frame-name">Tinted with stone colors</p><span class="frame-tag">bells &amp; whistles</span></div>
+      </div>
+    </div>
   </div>
 </section>
 

@@ -1277,3 +1277,184 @@ for ax in axes.ravel():
 plt.tight_layout()
 plt.savefig("save/2.4_portal_stack.png", bbox_inches="tight")
 plt.show()
+
+
+#2.4.3 irregular mask x6: Thanos's face inside each Infinity Stone
+hand = plt.imread("data/thanoshand.png")[..., :3].astype(float)
+thanos = plt.imread("data/thanos.png")[..., :3].astype(float)
+
+# upscale the gauntlet 2x so the tiny faces keep some detail
+up = 2
+hand = cv2.resize(hand, None, fx=up, fy=up, interpolation=cv2.INTER_CUBIC)
+hand = np.clip(hand, 0, 1)
+HH, HW = hand.shape[:2]
+
+# crop just the face out of the Thanos photo
+thanos_face = thanos[20:300, 225:420]
+
+# (name, center x, center y, x radius, y radius) in original gauntlet pixels
+stones = [
+    ("soul",    23, 291, 10, 17),
+    ("reality", 47, 263, 13, 24),
+    ("space",   94, 243, 15, 27),
+    ("power",  151, 222, 21, 25),
+    ("mind",    92, 337, 24, 31),
+    ("time",   278, 333, 21, 29),
+]
+
+# put the face, resized to cover one stone, onto a canvas the size of the gauntlet
+def face_on_canvas(face, cx, cy, rx, ry):
+    fh, fw = int(2.2 * ry), int(2.2 * rx)
+    small = cv2.resize(face, (fw, fh), interpolation=cv2.INTER_AREA)
+    top, left = cy - fh // 2, cx - fw // 2
+    # fill the rest by repeating edge pixels (hidden by the mask anyway)
+    return np.pad(
+        small,
+        ((top, HH - top - fh), (left, HW - left - fw), (0, 0)),
+        mode="edge"
+    )
+
+# Bells & Whistles: tint each face with its stone's color (False = plain faces)
+tint_faces = True
+suffix = "" if tint_faces else "_notint"
+
+Ys, Xs = np.ogrid[:HH, :HW]
+stones_result = hand.copy()
+stone_masks = np.zeros((HH, HW))
+
+# same blend as the portal, repeated once per stone
+for name, cx, cy, rx, ry in stones:
+    cx, cy, rx, ry = cx * up, cy * up, rx * up, ry * up
+
+    mask_stone = (
+        ((Xs - cx) / rx)**2 +
+        ((Ys - cy) / ry)**2
+        < 1
+    ).astype(float)
+    stone_masks = np.maximum(stone_masks, mask_stone)
+
+    face_canvas = face_on_canvas(thanos_face, cx, cy, rx, ry)
+
+    # tint the face with the stone's color: keep the face's brightness detail,
+    # and scale it so its average color inside the stone matches the original stone
+    if tint_faces:
+        inside = mask_stone > 0
+        stone_color = hand[inside].mean(axis=0)
+        face_gray = face_canvas.mean(axis=2)
+        face_canvas = np.clip(
+            face_gray[:, :, np.newaxis] / face_gray[inside].mean() * stone_color,
+            0, 1
+        )
+
+    L_face = laplacian_stack(gaussian_stack(face_canvas, num_levels=5, ksize=9, sigma=2))
+    L_base = laplacian_stack(gaussian_stack(stones_result, num_levels=5, ksize=9, sigma=2))
+    # small stones -> smaller mask blur than the portal
+    G_stone = gaussian_stack(mask_stone, num_levels=5, ksize=9, sigma=2)
+
+    L_stone = [
+        G_stone[i][:, :, np.newaxis] * L_face[i]
+        + (1 - G_stone[i][:, :, np.newaxis]) * L_base[i]
+        for i in range(5)
+    ]
+    stones_result = np.clip(np.sum(L_stone, axis=0), 0, 1)
+
+fig, axes = plt.subplots(1, 4, figsize=(20, 9))
+
+axes[0].imshow(thanos)
+axes[0].set_title("Thanos")
+axes[1].imshow(hand)
+axes[1].set_title("Infinity Gauntlet")
+axes[2].imshow(stone_masks, cmap="gray")
+axes[2].set_title("Six Elliptical Stone Masks")
+axes[3].imshow(stones_result)
+axes[3].set_title("Multiresolution Blend")
+
+for ax in axes:
+    ax.axis("off")
+
+plt.tight_layout()
+plt.savefig(f"save/2.4_thanos_stones{suffix}.png", bbox_inches="tight")
+plt.imsave(f"save/2.4_thanos_stones{suffix}_only.png", stones_result)
+plt.show()
+
+
+#2.4.4 straight-line mask: half Peter Parker, half Spider-Man
+peter = load_rgb("data/peter.png")
+spider = load_rgb("data/spider.png")
+
+# line up the eyes (pupils for Peter, eye lenses for Spider-Man), measured once by hand, as (x, y)
+peter_eyes = ((190, 246), (290, 243))
+spider_eyes = ((205, 145), (282, 145))
+# x position of each nose's center line (between Peter's nostrils / Spider-Man's center web strand)
+peter_nose_x, spider_nose_x = 238, 245
+
+# align_images puts the midpoint of the two points at the image center, so slide each
+# pair of eye points sideways until their midpoint is on the nose (spacing and angle stay the same)
+def center_on_nose(eyes, nose_x):
+    (x1, y1), (x2, y2) = eyes
+    d = nose_x - (x1 + x2) / 2
+    return (x1 + d, y1), (x2 + d, y2)
+
+face_pts = center_on_nose(peter_eyes, peter_nose_x) + center_on_nose(spider_eyes, spider_nose_x)
+peter_aligned, spider_aligned = align_images(peter, spider, face_pts)
+
+# remove the black padding, cutting the SAME amount from left and right so the nose
+# stays exactly in the middle column (top/bottom don't matter for a vertical seam)
+def crop_padding_centered(a, b):
+    keep_rows = (a.sum(axis=(1, 2)) > 0) & (b.sum(axis=(1, 2)) > 0)
+    keep_cols = (a.sum(axis=(0, 2)) > 0) & (b.sum(axis=(0, 2)) > 0)
+
+    def symmetric(keep):
+        idx = np.where(keep)[0]
+        c = max(idx[0], len(keep) - 1 - idx[-1])
+        return slice(c, len(keep) - c)
+
+    cols = symmetric(keep_cols)
+    return a[keep_rows][:, cols], b[keep_rows][:, cols]
+
+peter_aligned, spider_aligned = crop_padding_centered(peter_aligned, spider_aligned)
+# the small rotation leaves thin black slivers at the edges; trim a margin (same on every side)
+m = 16
+peter_aligned, spider_aligned = peter_aligned[m:-m, m:-m], spider_aligned[m:-m, m:-m]
+
+# both noses are now on the center column, so a vertical step mask at W // 2
+# puts the seam right on the nose
+FH, FW = peter_aligned.shape[:2]
+mask_face = np.zeros((FH, FW))
+mask_face[:, :FW // 2] = 1
+
+G_peter = gaussian_stack(peter_aligned, num_levels=5, ksize=9, sigma=2)
+G_spider = gaussian_stack(spider_aligned, num_levels=5, ksize=9, sigma=2)
+L_peter = laplacian_stack(G_peter)
+L_spider = laplacian_stack(G_spider)
+G_face = gaussian_stack(mask_face, num_levels=5, ksize=31, sigma=5)
+
+L_face_blend = [
+    G_face[i][:, :, np.newaxis] * L_peter[i]
+    + (1 - G_face[i][:, :, np.newaxis]) * L_spider[i]
+    for i in range(5)
+]
+face_blend = np.clip(np.sum(L_face_blend, axis=0), 0, 1)
+
+face_naive = mask_face[:, :, np.newaxis] * peter_aligned + (1 - mask_face[:, :, np.newaxis]) * spider_aligned
+
+fig, axes = plt.subplots(1, 5, figsize=(25, 7))
+
+axes[0].imshow(np.clip(peter_aligned, 0, 1))
+axes[0].set_title("Peter (aligned)")
+axes[1].imshow(np.clip(spider_aligned, 0, 1))
+axes[1].set_title("Spider-Man (aligned)")
+axes[2].imshow(mask_face, cmap="gray", vmin=0, vmax=1)
+axes[2].set_title("Vertical Step Mask")
+axes[3].imshow(np.clip(face_naive, 0, 1))
+axes[3].set_title("Naive Cut-and-Paste")
+axes[4].imshow(face_blend)
+axes[4].set_title("Multiresolution Blend")
+
+for ax in axes:
+    ax.axis("off")
+
+plt.tight_layout()
+plt.savefig("save/2.4_peter_spider.png", bbox_inches="tight")
+plt.imsave("save/2.4_peter_spider_only.png", face_blend)
+plt.show()
