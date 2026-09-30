@@ -39,23 +39,18 @@
 
     <div class="explain">
       <div class="explain-text">
-        <p>I implemented 2D convolution in NumPy in two ways. The first version uses four nested loops: over output rows, output columns, kernel rows, and kernel columns. The second version keeps only the two loops over output pixels and replaces the inner two with a single NumPy operation: it slices the window under the kernel and computes <code>np.sum(window * kernel)</code>. Both versions flip the kernel first, which is what makes this a true convolution rather than a cross-correlation.</p>
-        <p><b>Boundaries.</b> Both functions support <code>"same"</code> padding (pad by <code>k // 2</code> so the output is the same size as the input) and <code>"full"</code> padding (pad by <code>k − 1</code>). The padding is filled with zeros, so pixels near the border are averaged with black and come out slightly darker. To compare fairly I called <code>scipy.signal.convolve2d(image, kernel, mode="same", boundary="fill", fillvalue=0)</code>, which uses the same zero padding. The maximum absolute difference between my two-loop result and SciPy's was <b>3.3 × 10<sup>−16</sup></b>, which is just floating-point rounding.</p>
-        <p><b>Runtime.</b> The four-loop version is by far the slowest, because every multiply-add runs in the Python interpreter. The two-loop version is much faster since the inner work is vectorized, but it still loops over every pixel in Python. SciPy is fastest by a wide margin because the entire operation runs in compiled C code. On a 256×256 crop of my photo with a 9×9 box filter, measured with <code>time.perf_counter()</code>:</p>
+        <p>In this task, I implemented 2D convolution in NumPy in two ways - the one that uses four for loops and the one that uses two for loops. </p>
+        <p>The four for loops include the iteration over output rows, output columns, kernel rows, and kernel columns. The two for loops version keeps only the two loops over output pixels and replaces the inner two with a single NumPy operation: it slices the window under the kernel and computes <code>np.sum(window * kernel)</code>. Both versions flip the kernel first, which is what makes this a true convolution rather than a cross-correlation.</p>
+        <p><b>Boundaries.</b> Functions both support <code>"same"</code> padding (pad by <code>k // 2</code> so the output is the same size as the input) and <code>"full"</code> padding (pad by <code>k − 1</code>). The padding is filled with zeros, so pixels near the border are averaged with black and come out slightly darker. The maximum absolute difference between my two-loop result and SciPy's was  <b>3.3 × 10<sup>−16</sup></b>, which is just floating-point rounding.</p>
+        <p><b>Runtime.</b> The four-loop version is by far the slowest (2.508 sec), because every multiply-add runs in the Python interpreter. The two-loop version is around 10 times faster (0.241 sec) since the inner work is vectorized, but it still loops over every pixel in Python, so not the most optimal approach. SciPy runs in compiled C, so it showed us the fastest performance of all (0.01 sec). 
+        </p>
         <table class="params">
           <tr><th>Method</th><th>Time</th><th>Max difference vs. SciPy</th></tr>
           <tr><td>4 loops</td><td>2.508 s</td><td>5.0 × 10<sup>−16</sup></td></tr>
           <tr><td>2 loops</td><td>0.241 s</td><td>3.3 × 10<sup>−16</sup></td></tr>
           <tr><td>SciPy</td><td>0.010 s</td><td>—</td></tr>
         </table>
-        <p>The two-loop version is about 10× faster than four loops, and SciPy is about 24× faster than two loops.</p>
       </div>
-    </div>
-
-    <div class="explain">
-        <div class="explain-text">
-          <p>On a 256×256 crop with a 9×9 box filter: 4 loops: 2.476 s, 2 loops: 0.239 s, SciPy: 0.01009 s.</p>
-        </div>
     </div>
 
     <div class="explain">
@@ -86,7 +81,7 @@
 
     <div class="explain">
       <div class="explain-text">
-        <p>Convolving the cameraman image with $D_x$ and $D_y$ gives the partial derivatives $\partial I/\partial x$ and $\partial I/\partial y$. Gray means no change; bright and dark lines are places where the intensity changes quickly from left to right or top to bottom.</p>
+        <p>To get the information about places where the intensity changes quickly from left to right or top to bottom, I created finite difference operators. This is done by convolving the cameraman image with Dx and Dy and calculating partial derivatives I/x and I/y. </p>
       </div>
     </div>
 
@@ -104,7 +99,7 @@
       <div class="explain-text">
         <p>The gradient magnitude combines both directions into a single edge-strength image:</p>
         <p>$$\|\nabla I\| = \sqrt{\left(\frac{\partial I}{\partial x}\right)^2 + \left(\frac{\partial I}{\partial y}\right)^2}$$</p>
-        <p>To get a binary edge map, I normalized the gradient magnitude to [0, 1] and kept every pixel above a threshold. I chose <b>0.2</b>. Lower thresholds pick up the grass texture and the noise in the sky as "edges"; higher thresholds start losing important edges such as the tripod legs. At 0.2 the grass noise is almost completely gone and the outline of the cameraman, camera and tripod remains. The trade-off is that weaker edges, like the buildings in the background, drop out, and some outlines are broken into pieces. I chose to favor removing noise, because the raw finite difference is very sensitive to it.</p>
+        <p>To get a binary edge map, I normalized the gradient magnitude to [0, 1] and kept every pixel above a threshold (I chose <b>0.2</b>). At 0.2 the grass noise is almost completely gone but the outline of the cameraman, camera and tripod remains! On choosing the threshold, we need to think about the trade-off of getting weaker edges as we increase the value to reduce noise. I chose to favor removing noise, because the raw finite difference is very sensitive to it.</p>
       </div>
     </div>
 
@@ -131,7 +126,7 @@
 
     <div class="explain">
       <div class="explain-text">
-        <p>The finite difference result is noisy, so I first smoothed the image with a Gaussian. I built a 1D Gaussian with <code>cv2.getGaussianKernel(9, 2)</code> (size 9, $\sigma = 2$) and took its outer product with itself to get a 9×9 2D Gaussian.</p>
+        <p>To reduce the noise from the result of the finite difference, I first smoothed the image with a Gaussian. I built a 1D Gaussian with <code>cv2.getGaussianKernel(9, 2)</code> (size 9, =2) and took its outer product with itself to get a 9×9 2D Gaussian.</p>
       </div>
     </div>
 
@@ -147,8 +142,8 @@
 
     <div class="explain">
       <div class="explain-text">
-        <p><b>Method 1: blur, then differentiate.</b> Taking $D_x$ and $D_y$ of the blurred image gives a much cleaner gradient magnitude. The blur removes the high-frequency noise in the grass and sky before the derivative can amplify it.</p>
-        <p><b>Method 2: a single DoG filter.</b> Because convolution is associative, $(I * G) * D_x = I * (G * D_x)$. So I can convolve the Gaussian with $D_x$ and $D_y$ once to get two derivative-of-Gaussian filters, then apply each filter to the image in a single pass.</p>
+        <p><b>Method 1: blur, then differentiate.</b> Taking Dx and Dy of the blurred image gives a much cleaner gradient magnitude. The blur removes the high-frequency noise in the grass and sky before the derivative can amplify it.</p>
+        <p><b>Method 2: a single DoG filter.</b> Because convolution is associative, (I*G)*Dx=I*(G*Dx). So I can convolve the Gaussian with Dx and Dy once to get two derivative-of-Gaussian filters, then apply each filter to the image in a single pass.</p>
       </div>
     </div>
 
@@ -164,7 +159,7 @@
 
     <div class="explain">
       <div class="explain-text">
-        <p>The two methods give the same result: the maximum absolute difference between them was <b>7.5 × 10<sup>−16</sup></b>, which is just floating-point rounding. This required using symmetric (mirrored) padding, <code>boundary="symm"</code>, for every convolution on the image. With zero padding, blurring and then differentiating creates a fake edge at the image border. The blur fades the image toward black, and the derivative detects that as a strong edge, which the single DoG pass doesn't produce. That border edge became the maximum value, so normalizing each result by its own maximum made the whole image look different, even though the interior values matched.</p>
+        <p>The two methods give the same result: the maximum absolute difference between them was <b>7.5 × 10<sup>−16</sup></b>, which is just floating-point rounding. This required using symmetric (mirrored) padding, <code>boundary="symm"</code>, for every convolution on the image. With zero padding, blurring and then differentiating creates a fake edge at the image border. The single DoG pass doesn't produce that boarder, so detecting those as a strong edge in partial differential is not good. That border edge became the maximum value, so normalizing each result by its own maximum made the whole image look different, even though the interior values matched.</p>
       </div>
     </div>
 
@@ -175,7 +170,7 @@
 
     <div class="explain">
       <div class="explain-text">
-        <p><b>Comparison with finite differences.</b> The DoG edges are thicker, smoother and much less noisy than the plain finite difference edges. The grass speckle is mostly gone, and the outline of the coat, camera and tripod is continuous. Because the blur also weakens the gradient, a lower threshold (0.05) was needed to recover the main edges. The trade-off is that fine detail gets blurred away, and edges are a few pixels wide instead of one.</p>
+        <p><b>Comparison with finite differences.</b> The DoG edges are thicker, smoother and much less noisy than the plain finite difference edges. Because the blur also weakens the gradient, a lower threshold (0.05) was needed to recover the main edges. Again, we have to think about the trade-off here, which is that fine detail gets blurred away, and edges are a few pixels wide instead of one.</p>
       </div>
     </div>
   </div>
@@ -191,7 +186,7 @@
 
     <div class="explain">
       <div class="explain-text">
-        <p>A Gaussian blur is a low-pass filter: it keeps the low frequencies (smooth shading) and removes the high frequencies (edges and fine texture). Subtracting the blurred image from the original leaves only the high frequencies:</p>
+        <p>To sharpen the image, I only want high frequencies. To do so, I subtracted the blurred image obtained from a Gaussian blur from the original.</p>
         <p>$$\text{high} = I - I * G$$</p>
         <p>Adding a scaled copy of those high frequencies back makes edges look crisper:</p>
         <p>$$I_{\text{sharp}} = I + \alpha\,(I - I * G) = I * \big((1+\alpha)\,e - \alpha\,G\big)$$</p>
@@ -216,7 +211,7 @@
 
     <div class="explain">
       <div class="explain-text">
-        <p>$\alpha$ controls how much of the high-frequency image is added back. At $\alpha$ = 0.5 and 1, the carvings on the dome and the arches get noticeably crisper while the image still looks natural. At $\alpha$ = 2, the edges start to look harsh. At $\alpha$ = 5, the image is clearly over-sharpened: bright halos appear around the trees and the building outline, and the smooth sky becomes grainy because noise is also a high frequency and gets amplified along with the real detail. A moderate value around 1–1.5 gave the best result.</p>
+        <p>To control how much of the high-frequency image is added back, we introduce . At  = 0.5 and 1, the carvings on the dome and the arches get noticeably crisper while the image still looks natural. At  = 2, the edges start to look harsh. At  = 5, the image is clearly over-sharpened. In the resulted photo, the smooth sky becomes grainy because noise is also a high frequency and gets amplified along with the real detail. A moderate value around 1–1.5 gave the best result.</p>
       </div>
     </div>
 
@@ -246,9 +241,9 @@
     <div class="explain">
       <div class="explain-text">
         <p>A hybrid image combines the <b>low frequencies</b> of one image with the <b>high frequencies</b> of another. Up close, the high frequencies dominate and you see the sharp image. From far away (or when the image is small), fine detail is no longer visible and only the blurry low-frequency image remains.</p>
-        <p>First I aligned the two images by clicking two matching points on each, the eyes. The alignment code centers, scales and rotates the images so those points line up. Then:</p>
+        <p>First I aligned the two images by clicking two matching points on each. Since both of the example I chose were human (/creature?), I used eyes as the key points. The alignment code centers, scales and rotates the images so those points line up. Then:</p>
         <p>$$\text{hybrid} = I_1 * G_{\sigma_{\text{low}}} \;+\; \big(I_2 - I_2 * G_{\sigma_{\text{high}}}\big)$$</p>
-        <p>I used 21×21 Gaussians with <b>$\sigma_{\text{low}} = 5$</b> for the low-pass image and <b>$\sigma_{\text{high}} = 3$</b> for the high-pass image. A Gaussian with standard deviation $\sigma$ pixels has a frequency cutoff of about $1/(2\pi\sigma)$ cycles per pixel, so the low-pass keeps below ~0.03 cycles/pixel and the high-pass keeps above ~0.05. I picked these values by trial and error. A larger $\sigma_{\text{low}}$ made the far-away image too blurry to recognize, and a smaller $\sigma_{\text{high}}$ made the close-up image too faint.</p>
+        <p>I used 21×21 Gaussians with <b>low=5</b> for the low-pass image and <b>high=3</b> for the high-pass image. A Gaussian with standard deviation  pixels has a frequency cutoff of about 1/(2) cycles per pixel, so the low-pass keeps below ~0.03 cycles/pixel and the high-pass keeps above ~0.05. Images are the results of adjusting this value by trial and error. A larger low made the far-away image too blurry to recognize, and a smaller high made the close-up image too faint.</p>
       </div>
     </div>
 
@@ -287,9 +282,9 @@
 
     <div class="explain">
       <div class="explain-text">
-        <p>A <b>Gaussian stack</b> is like a Gaussian pyramid, except that the image is never downsampled. Level 0 is the original, and each next level is the previous one blurred again (9×9 Gaussian, $\sigma = 2$). Every level stays the same size, which makes blending easy later.</p>
-        <p>A <b>Laplacian stack</b> stores the difference between neighboring Gaussian levels, $L_i = G_i - G_{i+1}$, so each level holds one band of frequencies. The last level is the blurriest Gaussian level itself, so the stack sums back to the original exactly:</p>
-        <p>$$\sum_i L_i = G_0 = I$$</p>
+        <p>A <b>Gaussian stack</b> is like a Gaussian pyramid, except that the image is never downsampled. Level 0 is the original, and each next level is the previous one blurred again (9×9 Gaussian, =2). Every level stays the same size, which makes blending easy later.</p>
+        <p>A <b>Laplacian stack</b> stores the difference between neighboring Gaussian levels, Li=Gi-Gi+1, so each level holds one band of frequencies. The last level is the blurriest Gaussian level itself, so the stack sums back to the original exactly:</p>
+        <p>iLi=G0=I</p>
         <p>I built 5-level stacks for the apple and the orange. Both images were converted to RGB (dropping the alpha channel) and cropped to a common size of 478×662.</p>
       </div>
     </div>
@@ -328,9 +323,9 @@
 
     <div class="explain">
       <div class="explain-text">
-        <p>To blend the apple and orange, I used a step-function <b>mask</b>: 1 on the left half (apple) and 0 on the right half (orange). I built a Gaussian stack of the mask as well, then blended each Laplacian level separately using the matching mask level:</p>
+        <p>For the blending task, I used a step-function <b>mask</b>: 1 on the left half (apple) and 0 on the right half (orange). I used a Gaussian stack of the mask, then blended each Laplacian level separately using the matching mask level based on the following math:</p>
         <p>$$L^{\text{blend}}_i = G^{\text{mask}}_i \cdot L^{\text{apple}}_i + \big(1 - G^{\text{mask}}_i\big)\cdot L^{\text{orange}}_i$$</p>
-        <p>Summing the blended levels gives the oraple. At level 0 the mask is still sharp, so fine texture switches abruptly at the seam. At the deeper levels the mask is blurry, so the colors and shading fade gradually. Using a separate transition width for each frequency band is what hides the seam.</p>
+        <p>Oraple was created by summing the blended levels. At level 0 the mask is still sharp, so fine texture switches abruptly at the seam. At the deeper levels the mask is blurry, so the colors and shading fade gradually. Using a separate transition width for each frequency band is what hides the seam.</p>
       </div>
     </div>
 
@@ -354,7 +349,7 @@
 
     <div class="explain">
       <div class="explain-text">
-        <p>Blurring four times with $\sigma = 2$ only adds up to a total blur of about 4 pixels, which is almost a hard edge on a 662-pixel-wide image. I increased the mask blur to a 31×31 kernel with $\sigma = 5$ (kernel size ≈ 6σ, so the Gaussian isn't cut off). The apple and orange stacks stayed at $\sigma = 2$; they only need the same <i>number</i> of levels as the mask.</p>
+        <p>Initially, I chose 9×9 kernel with =2 with four time blurs. This resulted in a very hard edge because I was just blurring 4 pixels on a 662-pixel-wide image. I increased the mask blur to a 31×31 kernel with =5 (kernel size ≈ 6σ, so the Gaussian isn't cut off). The apple and orange stacks stayed at =2; they only need the same <i>number</i> of levels as the mask.</p>
       </div>
     </div>
 
@@ -389,7 +384,7 @@
 
     <div class="explain">
       <div class="explain-text">
-        <p>For a custom straight-line blend, I split a face down the middle: Peter Parker on the left and Spider-Man on the right. For the seam to land on the nose, the faces had to line up first. I reused the alignment code from Part 2.2 with fixed points instead of clicks: Peter's pupils and the centers of Spider-Man's eye lenses. The alignment code centers the image on the midpoint of the two points, so I slid each pair of eye points sideways until their midpoint sat on the nose's center line (between Peter's nostrils, and on Spider-Man's center web strand). This keeps the eye spacing and angle the same, but centers both images on the nose. Cropping away the alignment padding can also shift the center, so I cropped the same amount from the left and right. I checked the result by tracking a marker at each nose through the alignment: both noses land within 1 pixel of the center column, so a vertical step mask at half the width puts the seam right on the nose. The blend uses the same settings as the oraple: 5-level stacks ($\sigma = 2$) for the images and a 31×31, $\sigma = 5$ Gaussian stack for the mask.</p>
+        <p>For a custom straight-line blend, I made a visual of Peter Parker and Spider-Man side-by-side face-splitting. For the seam to land on the nose, the faces had to line up first. I reused the alignment code from Part 2.2 with fixed points instead of clicks: Peter's pupils and the centers of Spider-Man's eye lenses. The alignment code centers the image on the midpoint of the two points, so I slid each pair of eye points sideways until their midpoint sat on the nose's center line (between Peter's nostrils, and on Spider-Man's center web strand). This keeps the eye spacing and angle the same, but centers both images on the nose. I checked the result by tracking a marker at each nose through the alignment: both noses land within 1 pixel of the center column, so a vertical step mask at half the width puts the seam right on the nose. The blend uses the same settings as the oraple: 5-level stacks (=2) for the images and a 31×31, =5 Gaussian stack for the mask.</p>
       </div>
     </div>
 
@@ -406,7 +401,7 @@
 
     <div class="explain">
       <div class="explain-text">
-        <p>For the irregular mask, I made the Berkeley campus appear through Dr. Strange's magic portal. I started from a circular mask and stretched it into an ellipse (separate horizontal and vertical radii) to match the oval shape of the portal. I placed it just inside the ring of sparks, so the sparks stay on top of the Berkeley view. Because the two images are different sizes, I resized the Berkeley photo and shifted it so the Campanile sits in the middle of the portal. Areas outside the portal are filled by repeating edge pixels; they're hidden by the mask anyway. The images use 5-level stacks ($\sigma = 2$), and the mask stack uses a 31×31 Gaussian with $\sigma = 5$, which gives the soft glowing edge.</p>
+        <p>For the irregular mask, I made the Berkeley campus appear through Dr. Strange's magic portal. I started from a circular mask and stretched it into an ellipse to match the oval shape of the portal. I placed it just inside the ring of sparks, so the sparks stay on top of the Berkeley view. Because the two images are different sizes, I resized the Berkeley photo and shifted it so the Campanile sits in the middle of the portal. The images use 5-level stacks (=2), and the mask stack uses a 31×31 Gaussian with =5, which gives the soft glowing edge.</p>
       </div>
     </div>
 
@@ -429,7 +424,7 @@
 
     <div class="explain">
       <div class="explain-text">
-        <p>For a more playful blend, I put Thanos's face inside each of the six Infinity Stones on the gauntlet, using the same elliptical-mask blend as the portal, repeated six times. For each stone, I placed an ellipse on the stone, resized a crop of Thanos's face to cover it, and blended the face into the current result with Laplacian stacks. The output of each blend became the input for the next stone. The stones are small, so I upscaled the gauntlet 2× to keep some facial detail. I also used a smaller mask blur (9×9, $\sigma = 2$) than for the portal; a $\sigma = 5$ mask would have spread each face across most of the stone's metal setting.</p>
+        <p>For a more playful blend, I put Thanos's face inside each of the six Infinity Stones on the gauntlet. This uses the same elliptical-mask blend as the portal, I just repeated six times. For each stone, I placed an ellipse on the stone, resized a crop of Thanos's face to cover it, and blended the face into the current result with Laplacian stacks. The output of each blend became the input for the next stone. I upscaled the gauntlet 2× to match the stone size so I won’t lose some facial detail. I also used a smaller mask blur (9×9, =2) than for the portal; a =5 mask would have spread each face across most of the stone's metal setting.</p>
       </div>
     </div>
 
