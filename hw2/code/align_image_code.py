@@ -86,8 +86,11 @@ def match_img_size(im1: np.ndarray, im2: np.ndarray) -> tuple:
     return im1, im2
 
 
-def align_images(im1: np.ndarray, im2: np.ndarray) -> tuple:
-    pts = get_points(im1, im2)
+def align_images(im1: np.ndarray, im2: np.ndarray, pts: tuple = None) -> tuple:
+    # pass pts from a previous run to skip clicking
+    if pts is None:
+        pts = get_points(im1, im2)
+        print("Alignment points:", pts)
     im1, im2 = align_image_centers(im1, im2, pts)
     im1, im2 = rescale_images(im1, im2, pts)
     im1, angle = rotate_im1(im1, pts)
