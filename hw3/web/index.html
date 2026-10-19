@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Project 3A — The Power of Flow Models</title>
+<link rel="stylesheet" href="style.css">
+<script>
+  window.MathJax = {
+    tex: {
+      inlineMath: [['$', '$'], ['\\(', '\\)']],
+      displayMath: [['$$', '$$'], ['\\[', '\\]']]
+    }
+  };
+</script>
+<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <p class="kicker">Project 3 · Part A</p>
+    <h1 class="title">Exploring the Power of Flow Models</h1>
+    <p class="hero-sub">Noising, denoising, Euler sampling, classifier-free guidance, and image editing with a pretrained flow-matching model.</p>
+    <figure class="wide">
+      <img src="images/2.1.png" alt="Five portraits generated with classifier-free guidance">
+      <figcaption>Five samples of “a high quality photo” generated from pure noise with classifier-free guidance ($w = 7$).</figcaption>
+    </figure>
+  </div>
+</header>
+
+<!-- ============================== OVERVIEW ============================== -->
+<section class="part" id="overview">
+  <div class="wrap">
+    <div class="part-head">
+      <p class="part-index">Overview</p>
+      <h2 class="part-title">Setup and Conventions</h2>
+    </div>
+
+    <div class="explain">
+      <div class="explain-text">
+        <p>In this part of the project I used a pretrained text-to-image flow model, PixNerd-XXL-P16-T2I, which generates $512 \times 512$ images. I did not train anything myself. The model can't read a raw text string, so each prompt is first turned into an embedding with <code>model.encode(prompt)</code>, which uses Qwen3. Instead, I wrote the pieces that sit around the model: building noisy inputs, turning the model's velocity prediction into a clean image, integrating with Euler steps, classifier-free guidance, and image-to-image editing.</p>
+        <p>Throughout, I used the linear flow-matching convention, where time $0$ is pure noise and time $1$ is a clean image:</p>
+        <p>$$x_t = (1 - t)\,\epsilon + t\,x_1, \qquad \epsilon \sim \mathcal{N}(0, I)$$</p>
+        <p>Differentiating with respect to $t$ gives the velocity along this path, $v = x_1 - \epsilon$, which is what the model $v_\theta(x_t, t, c)$ is trained to predict. All images are center-cropped and resized to $512 \times 512$ with RGB values in $[-1, 1]$.</p>
+        <table class="params">
+          <tr><th>Setting</th><th>Value</th></tr>
+          <tr><td>Random seed</td><td>180</td></tr>
+          <tr><td>Euler step size $h$</td><td>0.02</td></tr>
+          <tr><td>CFG weight $w$</td><td>7</td></tr>
+          <tr><td>Default prompt</td><td>“a high quality photo”</td></tr>
+          <tr><td>Null prompt (for CFG)</td><td>“” (empty string)</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== PART 1.1 ============================== -->
+<section class="part" id="part1-1">
+  <div class="wrap">
+    <div class="part-head">
+      <p class="part-index">Part 1.1</p>
+      <h2 class="part-title">Constructing Noisy Training Inputs</h2>
+    </div>
+
+    <div class="explain">
+      <div class="explain-text">
+        <p>For sections 1.1 to 1.5 I used my own photo of Yosemite Falls. The <code>interpolate</code> function is a direct implementation of the equation above: <code>(1 - t) * noise + t * image</code>. I checked both endpoints: at $t = 0$ it returns exactly the noise, and at $t = 1$ it returns exactly the image.</p>
+        <p>I sampled a single noise tensor (seed 180) and reused it for $t = 0.25, 0.50, 0.75$. I kept the same noise for the later sections, because I need it in 1.4 to compute the ground-truth velocity.</p>
+      </div>
+    </div>
+
+    <figure class="wide narrow">
+      <img src="images/1.1_original.JPG" alt="Original photo of Yosemite Falls">
+      <figcaption>My original photo of Yosemite Falls.</figcaption>
+    </figure>
+
+    <figure class="wide">
+      <img src="images/1.1.png" alt="Original and noisy inputs at t=0.25, 0.5, 0.75">
+      <figcaption>Left to right: preprocessed original, then $x_t$ at $t = 0.25$, $0.50$, $0.75$. Lower $t$ means more noise.</figcaption>
+    </figure>
+
+    <div class="explain">
+      <div class="explain-text">
+        <p>At $t = 0.25$ the image is mostly noise, and I can only just make out the dark tree on the right. By $t = 0.75$ the scene is clearly visible with a layer of grain on top.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== PART 1.2 ============================== -->
+<section class="part" id="part1-2">
+  <div class="wrap">
+    <div class="part-head">
+      <p class="part-index">Part 1.2</p>
+      <h2 class="part-title">Classical Denoising</h2>
+    </div>
+
+    <div class="explain">
+      <div class="explain-text">
+        <p>As a baseline, I tried to denoise each input without the model. Since $x_t$ only contains $t$ times the clean image, I first divided by $t$ to restore the image amplitude, then applied a Gaussian blur: $\hat{x}_1 = G_\sigma * (x_t / t)$. Dividing by $t$ only fixes the brightness and does not remove any noise. The blur does the denoising, because averaging nearby pixels partly cancels independent, zero-mean noise. I swept $\sigma \in \{1, 2, 4, 8, 16\}$ and kept the blur with the lowest mean squared error against the known clean image.</p>
+        <p>The noisier the input, the larger the best $\sigma$: $\sigma = 1$ at $t = 0.75$, $\sigma = 4$ at $t = 0.50$, and $\sigma = 8$ at $t = 0.25$. A larger blur averages away more noise but also removes the detail of the scene. At $t = 0.25$ the result is only a blurry outline of the trees and sky.</p>
+      </div>
+    </div>
+
+    <figure class="wide">
+      <img src="images/1.2_sigma_8.png" alt="t=0.25 noisy input and best blur, sigma 8">
+      <figcaption>$t = 0.25$: noisy input (left) and best Gaussian blur, $\sigma = 8$ (right).</figcaption>
+    </figure>
+
+    <figure class="wide">
+      <img src="images/1.2_sigma_4.png" alt="t=0.5 noisy input and best blur, sigma 4">
+      <figcaption>$t = 0.50$: noisy input (left) and best Gaussian blur, $\sigma = 4$ (right).</figcaption>
+    </figure>
+
+    <figure class="wide">
+      <img src="images/1.2_sigma_1.png" alt="t=0.75 noisy input and best blur, sigma 1">
+      <figcaption>$t = 0.75$: noisy input (left) and best Gaussian blur, $\sigma = 1$ (right).</figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- ============================== PART 1.3 ============================== -->
+<section class="part" id="part1-3">
+  <div class="wrap">
+    <div class="part-head">
+      <p class="part-index">Part 1.3</p>
+      <h2 class="part-title">One-Step Denoising</h2>
+    </div>
+
+    <div class="explain">
+      <div class="explain-text">
+        <p>Next I used the pretrained model. If the model's velocity were exactly $x_1 - \epsilon$, then one jump of length $1 - t$ would land on the clean image:</p>
+        <p>$$\hat{x}_1 = x_t + (1 - t)\, v_\theta(x_t, t, c)$$</p>
+        <p>I implemented this in <code>one_step_denoise</code>. The model predicts a velocity, not noise, so the prediction is added (scaled by $1 - t$) rather than subtracted. I made exactly one model call per noisy input with the prompt “a high quality photo”. Before using it, I checked that the predicted velocity has the same shape, dtype and device as the image and contains only finite values.</p>
+      </div>
+    </div>
+
+    <figure class="wide">
+      <img src="images/1.3.png" alt="Original, noisy and one-step estimates at t=0.25, 0.5, 0.75">
+      <figcaption>Rows: $t = 0.25$, $0.50$, $0.75$. Columns: original, noisy input, one-step estimate.</figcaption>
+    </figure>
+
+    <div class="explain">
+      <div class="explain-text">
+        <p>This is much better than the Gaussian blur. At $t = 0.75$ and $t = 0.50$ the estimate is close to the original. At $t = 0.25$ the overall layout (trees, cliff, waterfall) is correct, but the result is soft and smooth. With that much noise, the model cannot tell which fine detail is correct, so one step predicts something close to the average of all plausible images, which looks blurry.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== PART 1.4 ============================== -->
+<section class="part" id="part1-4">
+  <div class="wrap">
+    <div class="part-head">
+      <p class="part-index">Part 1.4</p>
+      <h2 class="part-title">Visualizing Velocity</h2>
+    </div>
+
+    <div class="explain">
+      <div class="explain-text">
+        <p>To see what the model adds in that one step, I compared the predicted update $(1 - t)\hat{v}_t$ with the ground-truth update. Because I saved the noise, the ground-truth velocity is $v_{\text{gt}} = x_1 - \epsilon$, so $(1 - t)v_{\text{gt}} = x_1 - x_t$. That is exactly what would recover my original photo.</p>
+        <p>For the error map I took the RMS difference across the RGB channels at each pixel:</p>
+        <p>$$E_t = \sqrt{\operatorname{mean}_{\text{RGB}}\big([(1 - t)(\hat{v}_t - v_{\text{gt}})]^2\big)}$$</p>
+        <p>The updates are drawn on one shared symmetric color scale, with zero shown as middle gray. The error maps also share one linear scale across all three times, so they can be compared directly.</p>
+      </div>
+    </div>
+
+    <figure class="wide narrow">
+      <img src="images/1.1_original.JPG" alt="Original photo of Yosemite Falls">
+      <figcaption>Original image $x_1$, used for the ground-truth velocity.</figcaption>
+    </figure>
+
+    <figure class="wide">
+      <img src="images/1.4.png" alt="Noisy input, predicted update, ground-truth update and error map at three times">
+      <figcaption>Rows: $t = 0.25$, $0.50$, $0.75$. Columns: noisy input, predicted update $(1-t)\hat v$, ground-truth update $(1-t)v_{\text{gt}}$, per-pixel RGB RMS error.</figcaption>
+    </figure>
+
+    <div class="explain">
+      <div class="explain-text">
+        <p>The predicted and ground-truth updates look very similar at all three times. Both contain the scene with the noise removed. As $t$ grows, both updates fade toward gray because the factor $(1 - t)$ shrinks and less correction is needed. The error is largest at $t = 0.25$ and is concentrated in high-frequency regions such as the tree branches and the edges of the waterfall. The flat sky and the smooth shadowed areas have low error. This matches 1.3: the model gets the coarse structure right, and the fine texture is where it has to guess.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== PART 1.5 ============================== -->
+<section class="part" id="part1-5">
+  <div class="wrap">
+    <div class="part-head">
+      <p class="part-index">Part 1.5</p>
+      <h2 class="part-title">Iterative Denoising with Euler Sampling</h2>
+    </div>
+
+    <div class="explain">
+      <div class="explain-text">
+        <p>Instead of one big jump, <code>euler_sample</code> takes many small steps and asks the model for a new velocity at each one:</p>
+        <p>$$x_{t+h} = x_t + h \cdot v(x_t, t)$$</p>
+        <p>If the remaining time is shorter than $h$, the last step is shortened so the sampler lands exactly on $t = 1$. The function returns the final image and every $(t, x_t)$ state along the way. I tested it with a constant velocity of 1: starting from 0, 0.5 and 0.93 it made 50, 25 and 4 calls and ended at exactly $1 - t_{\text{start}}$, which confirms the step count and the shortened final step are both correct.</p>
+        <p>I then denoised the saved $t = 0.50$ input with $h = 0.02$, which takes 25 updates.</p>
+      </div>
+    </div>
+
+    <figure class="wide">
+      <img src="images/1.5_1.png" alt="Euler trajectory from t=0.50 to t=0.72">
+      <figcaption>Euler trajectory, $t = 0.50$ to $0.72$. Every update is shown, which includes the initial state and every fifth update ($t = 0.60, 0.70, \dots$).</figcaption>
+    </figure>
+
+    <figure class="wide">
+      <img src="images/1.5_2.png" alt="Euler trajectory to t=1.00 and comparison of blur, one-step and Euler">
+      <figcaption>Euler trajectory up to $t = 1.00$. Bottom row: original, Gaussian blur, one-step, Euler.</figcaption>
+    </figure>
+
+    <div class="explain">
+      <div class="explain-text">
+        <p>The noise disappears gradually over the trajectory, and the final image is the sharpest of the three methods. The Gaussian blur removes noise by removing detail. The one-step estimate keeps the structure but is a little soft. The Euler result recovers crisp needles on the trees and texture on the granite. Because the velocity is recomputed at each step, the model can correct its earlier guesses as the image gets cleaner, rather than committing to a single average guess.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== PART 1.6 ============================== -->
+<section class="part" id="part1-6">
+  <div class="wrap">
+    <div class="part-head">
+      <p class="part-index">Part 1.6</p>
+      <h2 class="part-title">Generating Images from Noise</h2>
+    </div>
+
+    <div class="explain">
+      <div class="explain-text">
+        <p>Starting Euler sampling at $t = 0$ from pure Gaussian noise turns the denoiser into a generator. I drew five independent noise tensors (seeds 180 to 184) and integrated each for 50 steps with the prompt “a high quality photo”.</p>
+      </div>
+    </div>
+
+    <figure class="wide">
+      <img src="images/1.6.png" alt="Five samples from pure noise without guidance">
+      <figcaption>Five samples from pure noise, no guidance, seeds 180–184.</figcaption>
+    </figure>
+
+    <div class="explain">
+      <div class="explain-text">
+        <p>Interestingly, every sample is a portrait of a person, so the model seems to associate “a high quality photo” with portrait photography. Seeds 182 and 184 look fairly realistic, but the others have clear problems: the face in seed 180 is smeared out, and seeds 181 and 183 have distorted, melted-looking skin. Without guidance the samples follow the prompt only weakly and often look incoherent.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== PART 2.1 ============================== -->
+<section class="part" id="part2-1">
+  <div class="wrap">
+    <div class="part-head">
+      <p class="part-index">Part 2.1</p>
+      <h2 class="part-title">Classifier-Free Guidance</h2>
+    </div>
+
+    <div class="explain">
+      <div class="explain-text">
+        <p>Classifier-free guidance (CFG) calls the model twice at the same $x_t$ and $t$: once with the prompt ($v_c$) and once with the empty-string null prompt ($v_u$). It then pushes the velocity further in the direction the prompt adds:</p>
+        <p>$$v_{\text{cfg}} = v_c + w\,(v_c - v_u)$$</p>
+        <p>I implemented this in <code>cfg_velocity</code>. With $w = 0$ this reduces to the plain conditional prediction, and I checked that my implementation returns exactly that. I used $w = 7$ and regenerated the five samples from 1.6 with the <em>same</em> starting noises, so the only difference is the guidance.</p>
+      </div>
+    </div>
+
+    <figure class="wide">
+      <img src="images/2.1.png" alt="Five samples with CFG w=7">
+      <figcaption>Same seeds as 1.6 (180–184), now with CFG $w = 7$.</figcaption>
+    </figure>
+
+    <div class="explain">
+      <div class="explain-text">
+        <p>The difference is dramatic. Every sample is now a clean, well-lit, sharp studio headshot with a coherent face. Some of the layout carries over from the same noise: for example, seed 182 still has the hand raised to the cheek. The trade-off is diversity. Guided samples look much more alike (centered face, plain background, similar framing), because CFG pulls each sample toward the most “prompt-like” region of image space.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== PART 3.1 ============================== -->
+<section class="part" id="part3-1">
+  <div class="wrap">
+    <div class="part-head">
+      <p class="part-index">Part 3.1</p>
+      <h2 class="part-title">Image-to-Image Editing</h2>
+    </div>
+
+    <div class="explain">
+      <div class="explain-text">
+        <p>To edit an existing image, I add noise to it, so it becomes $x_{t_{\text{start}}} = (1 - t_{\text{start}})\epsilon + t_{\text{start}} x_1$. Then I run the Euler sampler with CFG from $t_{\text{start}}$ to 1. The model has to “fill in” what the noise destroyed, so the result is a new image that keeps some of the original. I used the starting times $0.02, 0.04, 0.06, 0.10, 0.14, 0.25, 0.50$ with the prompt “a high quality photo”, $w = 7$ and $h = 0.02$.</p>
+        <p>A small $t_{\text{start}}$ means almost pure noise, so only the coarsest information (overall brightness and color layout) survives. A large $t_{\text{start}}$ keeps most of the original image.</p>
+      </div>
+    </div>
+
+    <figure class="wide">
+      <img src="images/3.1_1.png" alt="Campanile edits at seven starting times">
+      <figcaption>The Campanile. Original, then $t_{\text{start}} = 0.02$ through $0.50$.</figcaption>
+    </figure>
+
+    <figure class="wide">
+      <img src="images/3.1_2_cat.png" alt="Cat edits at seven starting times">
+      <figcaption>My cat image. Original, then $t_{\text{start}} = 0.02$ through $0.50$.</figcaption>
+    </figure>
+
+    <figure class="wide">
+      <img src="images/3.1_3_lamma.png" alt="Llama edits at seven starting times">
+      <figcaption>My llama image. Original, then $t_{\text{start}} = 0.02$ through $0.50$.</figcaption>
+    </figure>
+
+    <div class="explain">
+      <div class="explain-text">
+        <p>All three show the same progression. At $t_{\text{start}} = 0.02$ to $0.06$ the model invents something unrelated that only shares the color layout: the Campanile becomes a white pillar against blue sky, the cat becomes a gray appliance, and the llama becomes a man in a white shirt. That fits the portrait bias I saw in 1.6. Around $t_{\text{start}} = 0.10$ to $0.14$ the subject's silhouette is restored, but with simplified detail: a smooth obelisk instead of a brick tower, and a hairless, seal-like llama. By $0.25$ and $0.50$ the edit is a close, slightly cleaned-up version of the original.</p>
+      </div>
+    </div>
+
+    <h3 class="part-title" style="text-align:center; margin-top:56px;">Hand-Drawn and Web Images</h3>
+
+    <div class="explain">
+      <div class="explain-text">
+        <p>I repeated the same procedure on one image from the web (a Chiikawa character) and two of my own drawings (Momonga and Usagi), using the same seven starting times.</p>
+      </div>
+    </div>
+
+    <figure class="wide">
+      <img src="images/3.1_4_web.png" alt="Web image edits at seven starting times">
+      <figcaption>Web image. Original, then $t_{\text{start}} = 0.02$ through $0.50$.</figcaption>
+    </figure>
+
+    <figure class="wide">
+      <img src="images/3.1_5_momonga.png" alt="Momonga drawing edits at seven starting times">
+      <figcaption>My drawing of Momonga. Original, then $t_{\text{start}} = 0.02$ through $0.50$.</figcaption>
+    </figure>
+
+    <figure class="wide">
+      <img src="images/3.1_6_usagi.png" alt="Usagi drawing edits at seven starting times">
+      <figcaption>My drawing of Usagi. Original, then $t_{\text{start}} = 0.02$ through $0.50$.</figcaption>
+    </figure>
+
+    <div class="explain">
+      <div class="explain-text">
+        <p>The drawings are a fun test because “a high quality photo” pushes the model toward realism. At the smallest starting times it turns the mostly white canvas into photos of white objects: a tablet, a bowl, a sticker with made-up lettering, a perfume bottle, and again a man in a white T-shirt. At $t_{\text{start}} = 0.04$ to $0.06$ the black outlines turn into real-looking objects, such as a rubber band or a pair of glasses with button eyes. From about $0.10$ on, the model keeps the line-art style and the characters come back. It only loses small details, like the blush marks and the exact facial expression, until those return around $0.25$ to $0.50$.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== PART 3.2 ============================== -->
+<section class="part" id="part3-2">
+  <div class="wrap">
+    <div class="part-head">
+      <p class="part-index">Part 3.2</p>
+      <h2 class="part-title">Text-Guided Image Editing</h2>
+    </div>
+
+    <div class="explain">
+      <div class="explain-text">
+        <p>This uses the same <code>edit</code> function as 3.1, but replaces the generic photo prompt with a prompt that describes the edit I want. The noise erases part of the image and the new prompt decides what fills it back in. I used the same seven starting times on the Campanile and my two personal images:</p>
+        <table class="params">
+          <tr><th>Image</th><th>Prompt</th></tr>
+          <tr><td>Campanile</td><td>“a beautiful watercolor painting of the UC Berkeley Campanile surrounded by cherry blossoms”</td></tr>
+          <tr><td>Cat</td><td>“a cute fluffy cat sitting in a magical forest, whimsical storybook illustration”</td></tr>
+          <tr><td>Llama</td><td>“a cute llama wearing a colorful knitted sweater, in a sunny meadow”</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="todo">TODO (3.2): add the three result figures (<code>text_edit_campanile.png</code>, <code>text_edit_my_image_1.png</code>, <code>text_edit_my_image_2.png</code>). Each should show the original and all seven starting times, with the prompt in the caption. Then add a short paragraph on where the prompt wins (low $t_{\text{start}}$), where the original wins (high $t_{\text{start}}$), and which in-between time gives the best edit. Before running, fix <code>TEST_IMAGE_PATHS</code> so <code>my_image_1</code> is the cat and <code>my_image_2</code> is the llama. Right now <code>my_image_1</code> points to the Campanile.</div>
+  </div>
+</section>
+
+<!-- ============================== PART 3.3 ============================== -->
+<section class="part" id="part3-3">
+  <div class="wrap">
+    <div class="part-head">
+      <p class="part-index">Part 3.3</p>
+      <h2 class="part-title">Visual Anagrams</h2>
+    </div>
+
+    <div class="explain">
+      <div class="explain-text">
+        <p>A visual anagram is a single image that shows one thing upright and something else when rotated by 180°. Let $F$ be a 180° rotation, which flips both spatial axes. At every Euler step I compute two guided velocities and average them:</p>
+        <p>$$v = \tfrac{1}{2}\Big( v_{\text{cfg}}(x_t, t, c_a) + F\big(v_{\text{cfg}}(F(x_t), t, c_b)\big) \Big)$$</p>
+        <p>I implemented this in <code>visual_anagrams</code>. The first term denoises the image toward prompt $a$ as it is. The second rotates the image, denoises it toward prompt $b$, and rotates that velocity back. Since $F(F(x)) = x$ (I checked this), both views are pushed toward their own prompt at every step. I integrate from pure noise with the same Euler sampler.</p>
+        <p>Prompt pairs: “an oil painting of an old man” / “an oil painting of people around a campfire”, and “a lithograph of a snowy mountain village” / “a lithograph of a horse”.</p>
+      </div>
+    </div>
+
+    <div class="todo">TODO (3.3): add two illusions (<code>anagram_views_0.png</code>, <code>anagram_views_1.png</code>). Show each one upright and rotated 180°, labeled with its prompt. Add a sentence on how well each view reads and how many seeds or prompts you tried.</div>
+  </div>
+</section>
+
+<!-- ============================== PART 3.4 ============================== -->
+<section class="part" id="part3-4">
+  <div class="wrap">
+    <div class="part-head">
+      <p class="part-index">Part 3.4</p>
+      <h2 class="part-title">Hybrid Images</h2>
+    </div>
+
+    <div class="explain">
+      <div class="explain-text">
+        <p>This is the generative version of the hybrid images from Project 2, adapted from Factorized Diffusion and implemented in <code>make_hybrids</code>. At each Euler step I compute guided velocities for both prompts at the same $x_t$ and $t$. I keep the low frequencies of prompt $a$ and the high frequencies of prompt $b$:</p>
+        <p>$$v = \text{LP}(v_a) + \big(v_b - \text{LP}(v_b)\big)$$</p>
+        <p>$\text{LP}$ is a Gaussian blur with $\sigma = 16$ and kernel size 265 at $512 \times 512$. Seen from far away (or at a small size) only the low frequencies are visible, so prompt $a$ shows. Up close, the high-frequency detail of prompt $b$ takes over.</p>
+        <p>Prompt pairs (distant / close): “a lithograph of a skull” / “a lithograph of a waterfall”, and “a lithograph of a cat” / “a lithograph of a forest”.</p>
+      </div>
+    </div>
+
+    <div class="todo">TODO (3.4): add two hybrids (<code>hybrid_0.png</code>, <code>hybrid_1.png</code>). Show each at full size (near view, labeled with the close prompt) and reduced to 64×64 (distant view, labeled with the distant prompt). Add a sentence on whether both readings come through.</div>
+  </div>
+</section>
+
+<!-- ============================== BELLS & WHISTLES ============================== -->
+<section class="part" id="bells">
+  <div class="wrap">
+    <div class="part-head">
+      <p class="part-index">Bells &amp; Whistles</p>
+      <h2 class="part-title">Extra Credit</h2>
+    </div>
+
+    <div class="todo">TODO (only required for CS280A; optional for CS180. Delete this section if you're not doing it): (1) visual anagrams with two more transformations from the Visual Anagrams paper, and (2) a course logo made by text-guided editing of the UCB logo or a drawing.</div>
+  </div>
+</section>
+
+<footer>
+  <p>CS180 · Project 3A · Yoko Furukawa</p>
+</footer>
+
+</body>
+</html>
