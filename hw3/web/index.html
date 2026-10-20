@@ -206,17 +206,13 @@
 
     <figure class="wide">
       <img src="images/1.5_1.png" alt="Euler trajectory from t=0.50 to t=0.72">
-      <figcaption>Euler trajectory, $t = 0.50$ to $0.72$. Every update is shown, which includes the initial state and every fifth update ($t = 0.60, 0.70, \dots$).</figcaption>
-    </figure>
-
-    <figure class="wide">
       <img src="images/1.5_2.png" alt="Euler trajectory to t=1.00 and comparison of blur, one-step and Euler">
       <figcaption>Euler trajectory up to $t = 1.00$. Bottom row: original, Gaussian blur, one-step, Euler.</figcaption>
     </figure>
 
     <div class="explain">
       <div class="explain-text">
-        <p>The noise disappears gradually over the trajectory, and the final image is the sharpest of the three methods. The Gaussian blur removes noise by removing detail. The one-step estimate keeps the structure but is a little soft. The Euler result recovers crisp needles on the trees and texture on the granite. Because the velocity is recomputed at each step, the model can correct its earlier guesses as the image gets cleaner, rather than committing to a single average guess.</p>
+        <p>The noise disappears gradually as $t$ becomes larger, and the final image is the sharpest of the three methods. The Gaussian blur removes noise by removing detail. The one-step estimate keeps the structure but is a little soft. The Euler result recovers crisp needles on the trees and texture on the granite. Because the velocity is recomputed at each step, the model can correct its earlier guesses as the image gets cleaner, rather than committing to a single average guess.</p>
       </div>
     </div>
   </div>
