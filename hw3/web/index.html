@@ -131,9 +131,10 @@
 
     <div class="explain">
       <div class="explain-text">
-        <p>Next I used the pretrained model. If the model's velocity were exactly $x_1 - \epsilon$, then one jump of length $1 - t$ would land on the clean image:</p>
+        <p>In this task, I implemented this in <code>one_step_denoise</code> that predicts a velocity, not noise, so the prediction is added (scaled by 1-t) rather than subtracted. </p>
         <p>$$\hat{x}_1 = x_t + (1 - t)\, v_\theta(x_t, t, c)$$</p>
-        <p>I implemented this in <code>one_step_denoise</code>. The model predicts a velocity, not noise, so the prediction is added (scaled by $1 - t$) rather than subtracted. I made exactly one model call per noisy input with the prompt “a high quality photo”. Before using it, I checked that the predicted velocity has the same shape, dtype and device as the image and contains only finite values.</p>
+        <p>If the model's velocity were exactly x1-, then one jump of length 1-t would land on the clean image.</p>
+        <p>Before using this model, I checked that the predicted velocity has the same shape, dtype and device as the image and contains only finite values.</p>
       </div>
     </div>
 
@@ -430,11 +431,23 @@
         <p>This is the generative version of the hybrid images from Project 2, adapted from Factorized Diffusion and implemented in <code>make_hybrids</code>. At each Euler step I compute guided velocities for both prompts at the same $x_t$ and $t$. I keep the low frequencies of prompt $a$ and the high frequencies of prompt $b$:</p>
         <p>$$v = \text{LP}(v_a) + \big(v_b - \text{LP}(v_b)\big)$$</p>
         <p>$\text{LP}$ is a Gaussian blur with $\sigma = 16$ and kernel size 265 at $512 \times 512$. Seen from far away (or at a small size) only the low frequencies are visible, so prompt $a$ shows. Up close, the high-frequency detail of prompt $b$ takes over.</p>
-        <p>Prompt pairs (distant / close): “a lithograph of a skull” / “a lithograph of a waterfall”, and “a lithograph of a cat” / “a lithograph of a forest”.</p>
+        <p>Prompt pairs: apple / apple pie, and flower / butterfly.</p>
       </div>
     </div>
 
-    <div class="todo">TODO (3.4): add two hybrids (<code>hybrid_0.png</code>, <code>hybrid_1.png</code>). Show each at full size (near view, labeled with the close prompt) and reduced to 64×64 (distant view, labeled with the distant prompt). Add a sentence on whether both readings come through.</div>
+    <figure class="wide narrow">
+      <img src="images/3.4_apple_applepie.png" alt="Hybrid image of apples and an apple pie">
+      <img src="images/3.4_apple_applepie.png" alt="Same hybrid reduced to 64 by 64" style="width:64px; height:64px; margin:16px auto 0;">
+      <figcaption>Apple / apple pie hybrid. Top: full size (near view). Bottom: reduced to 64×64 (distant view).</figcaption>
+    </figure>
+
+    <figure class="wide narrow">
+      <img src="images/3.4_flower_butterfly.png" alt="Hybrid image of a flower and a butterfly">
+      <img src="images/3.4_flower_butterfly.png" alt="Same hybrid reduced to 64 by 64" style="width:64px; height:64px; margin:16px auto 0;">
+      <figcaption>Flower / butterfly hybrid. Top: full size (near view). Bottom: reduced to 64×64 (distant view).</figcaption>
+    </figure>
+
+    <div class="todo">TODO (3.4): give the exact prompts for each pair and say which one is the distant (low-frequency) prompt and which is the close one. Add a sentence on whether both readings come through.</div>
   </div>
 </section>
 
