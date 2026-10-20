@@ -236,7 +236,7 @@
       <img src="images/1.6.png" alt="Five samples from pure noise without guidance">
       <figcaption>Five samples from pure noise, no guidance, seeds 180–184.</figcaption>
     </figure>
-    
+
   </div>
 </section>
 
@@ -250,9 +250,9 @@
 
     <div class="explain">
       <div class="explain-text">
-        <p>Classifier-free guidance (CFG) calls the model twice at the same $x_t$ and $t$: once with the prompt ($v_c$) and once with the empty-string null prompt ($v_u$). It then pushes the velocity further in the direction the prompt adds:</p>
+        <p>In this task, I implemented <code>cfg_velocity</code>. Classifier-free guidance (CFG) calls the model twice at the same $x_t$ and $t$, with the prompt ($v_c$) and with the empty-string null prompt ($v_u$), and then pushes the velocity further in the direction the prompt adds.</p>
         <p>$$v_{\text{cfg}} = v_c + w\,(v_c - v_u)$$</p>
-        <p>I implemented this in <code>cfg_velocity</code>. With $w = 0$ this reduces to the plain conditional prediction, and I checked that my implementation returns exactly that. I used $w = 7$ and regenerated the five samples from 1.6 with the <em>same</em> starting noises, so the only difference is the guidance.</p>
+        <p>With $w = 0$ this reduces to the plain conditional prediction, and I checked that my implementation returns exactly that. I used $w = 7$ and regenerated the five samples from 1.6 with the <em>same</em> starting noises, so the only difference is the guidance.</p>
       </div>
     </div>
 
@@ -263,7 +263,8 @@
 
     <div class="explain">
       <div class="explain-text">
-        <p>The difference is dramatic. Every sample is now a clean, well-lit, sharp studio headshot with a coherent face. Some of the layout carries over from the same noise: for example, seed 182 still has the hand raised to the cheek. The trade-off is diversity. Guided samples look much more alike (centered face, plain background, similar framing), because CFG pulls each sample toward the most “prompt-like” region of image space.</p>
+        <p>Now all the samples are clean and sharp with more realistic face. Some of the layout carries over from the same noise such as the hand raised to the cheek in seed 182.</p>
+        <p>Although this approach increases accuracy of the output image, there is a trade-off of image quality and diversity. Guided samples look much more alike (centered face, plain background, similar framing), because CFG pulls each sample toward the most “prompt-like” region of image space.</p>
       </div>
     </div>
   </div>
@@ -455,8 +456,284 @@
   </div>
 </section>
 
+<!-- ============================================================
+     PART B
+     ============================================================ -->
+<header class="hero" id="partb">
+  <div class="wrap">
+    <p class="kicker">Project 3 · Part B</p>
+    <h1 class="title">Flow Matching from Scratch</h1>
+    <p class="hero-sub">Training a one-step denoiser and then time- and class-conditioned flow matching UNets on MNIST.</p>
+  </div>
+</header>
+
+<!-- ============================== PART B 1.1 ============================== -->
+<section class="part" id="partb1-1">
+  <div class="wrap">
+    <div class="part-head">
+      <p class="part-index">Part B · 1.1</p>
+      <h2 class="part-title">Implementing the UNet</h2>
+    </div>
+
+    <div class="explain">
+      <div class="explain-text">
+        <p>I built the UNet from the standard operations in the spec:</p>
+        <table class="params">
+          <tr><th>Block</th><th>Implementation</th></tr>
+          <tr><td>Conv</td><td><code>Conv2d(3, stride 1, pad 1)</code> → BatchNorm → GELU. Keeps the resolution.</td></tr>
+          <tr><td>DownConv</td><td><code>Conv2d(3, stride 2, pad 1)</code> → BatchNorm → GELU. Halves the resolution.</td></tr>
+          <tr><td>UpConv</td><td><code>ConvTranspose2d(4, stride 2, pad 1)</code> → BatchNorm → GELU. Doubles the resolution.</td></tr>
+          <tr><td>ConvBlock</td><td>Two Convs in a row.</td></tr>
+          <tr><td>DownBlock / UpBlock</td><td>DownConv or UpConv followed by a ConvBlock.</td></tr>
+        </table>
+        <p>The unconditional UNet encodes a $28 \times 28$ digit with a ConvBlock ($D$ channels), then two DownBlocks that go to $14 \times 14$ ($D$ channels) and $7 \times 7$ ($2D$ channels). The decoder upsamples back with UpConvs. At each resolution it concatenates the matching encoder feature map (the skip connection) and mixes it with a ConvBlock. A final $1 \times 1$ convolution maps $D$ channels back to one output channel. I checked that a batch of shape $(8, 1, 28, 28)$ comes out with the same shape.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== PART B 1.2 ============================== -->
+<section class="part" id="partb1-2">
+  <div class="wrap">
+    <div class="part-head">
+      <p class="part-index">Part B · 1.2</p>
+      <h2 class="part-title">Using the UNet to Train a Denoiser</h2>
+    </div>
+
+    <div class="explain">
+      <div class="explain-text">
+        <p>The denoiser $D_\theta$ is trained to map a noisy digit $z = x + \sigma\epsilon$, with $\epsilon \sim \mathcal{N}(0, I)$, back to the clean digit $x$ by minimizing the L2 loss $\lVert D_\theta(z) - x \rVert^2$. MNIST pixels are in $[0, 1]$. As $\sigma$ grows, the digit disappears into the noise.</p>
+      </div>
+    </div>
+
+    <div class="todo">TODO (1.2): add the noising-process figure, one digit noised with $\sigma = 0.0, 0.2, 0.4, 0.5, 0.6, 0.8, 1.0$. The notebook has no cell that makes it.</div>
+
+    <h3 class="part-title" style="text-align:center; margin-top:56px;">1.2.1 Training</h3>
+
+    <div class="explain">
+      <div class="explain-text">
+        <p>I trained the UNet with $D = 128$ on the MNIST training set for 5 epochs, with batch size 256 and Adam at a learning rate of $10^{-4}$. The dataloader shuffles the data, and I noise each batch with $\sigma = 0.5$ only when it is fetched. That way the network sees fresh noise on every pass instead of a fixed noisy dataset.</p>
+      </div>
+    </div>
+
+    <figure class="wide">
+      <img src="images/b1.2.1_loss.png" alt="Training loss of the single-step denoiser">
+      <figcaption>Training loss for every iteration (235 per epoch, 1,175 total), $\sigma = 0.5$.</figcaption>
+    </figure>
+
+    <div class="explain">
+      <div class="explain-text">
+        <p>The loss falls from about 0.34 to below 0.03 within the first ~30 iterations, then keeps slowly decreasing to about 0.01 by the end of epoch 5.</p>
+      </div>
+    </div>
+
+    <div class="todo">TODO (1.2.1): add denoised test-set samples at $\sigma = 0.5$ after epoch 1 and after epoch 5. The notebook doesn't save these.</div>
+
+    <h3 class="part-title" style="text-align:center; margin-top:56px;">1.2.2 Out-of-Distribution Testing</h3>
+
+    <div class="explain">
+      <div class="explain-text">
+        <p>The denoiser only saw $\sigma = 0.5$ during training. To see how it handles other noise levels, I took eight test digits and noised each one with the same noise pattern scaled to $\sigma = 0.0, 0.2, 0.5, 0.8, 1.0$.</p>
+      </div>
+    </div>
+
+    <figure class="wide">
+      <img src="images/b1.2.2_ood.png" alt="Clean test digits, noisy versions at increasing sigma, and denoised output at sigma 1.0">
+      <figcaption>Row 1: clean test digits. Rows 2–6: noisy inputs at $\sigma = 0.0, 0.2, 0.5, 0.8, 1.0$. Row 7: denoiser output for $\sigma = 1.0$.</figcaption>
+    </figure>
+
+    <div class="explain">
+      <div class="explain-text">
+        <p>At $\sigma = 1.0$, twice the training noise, the denoiser still recovers the 7, 2 and 0 well, but the 1s, 4s and the 9 turn into tangled strokes. With that much noise the network can't tell which bright pixels belong to the digit, so it makes up extra strokes that look like parts of other digits.</p>
+      </div>
+    </div>
+
+    <div class="todo">TODO (1.2.2): in the plotting loop, row <code>i + 2</code> (denoised) is overwritten by the next noise level's noisy row <code>i + 1</code>, so only the $\sigma = 1.0$ output survives. Give each $\sigma$ its own pair of rows (e.g. rows <code>2i + 1</code> and <code>2i + 2</code>) and replace this figure with denoised results at every $\sigma$.</div>
+
+    <h3 class="part-title" style="text-align:center; margin-top:56px;">1.2.3 Denoising Pure Noise</h3>
+
+    <div class="explain">
+      <div class="explain-text">
+        <p>To turn the denoiser into a generator, I trained a fresh $D = 128$ UNet with the same settings (5 epochs, batch 256, Adam $10^{-4}$). This time the input is pure Gaussian noise $z = \epsilon$, independent of the target digit.</p>
+      </div>
+    </div>
+
+    <figure class="wide">
+      <img src="images/b1.2.3_loss.png" alt="Training loss when denoising pure noise">
+      <figcaption>Training loss for every iteration when the input is pure noise.</figcaption>
+    </figure>
+
+    <div class="explain">
+      <div class="explain-text">
+        <p>Unlike in 1.2.1, the loss levels off almost right away. The average loss per epoch was 0.0739, 0.0677, 0.0675, 0.0674 and 0.0674. Epochs 2–5 barely improve, because the input carries no information about which digit is the target.</p>
+        <p>With an MSE loss, the best prediction for a given input is the average of all targets that could go with it. Here every digit is equally likely for any noise input, so the minimizer is a single image, the pixel-wise mean of the training set. That is the centroid of all MNIST digits. The model learns to output roughly the same blurry, glowing blob for every input: bright in the center, where most digits have ink, and dark at the edges. It looks like several digits (0, 3, 8, 9) overlaid on top of each other rather than any one digit. The loss levels off at about the average per-pixel variance of the dataset, which is the lowest any input-independent prediction can reach.</p>
+      </div>
+    </div>
+
+    <div class="todo">TODO (1.2.3): add samples from the pure-noise denoiser after epoch 1 and after epoch 5. The notebook saves both checkpoints (<code>epoch1_state</code>, <code>epoch5_state</code>) but never samples from them. Check that the samples match the description above.</div>
+  </div>
+</section>
+
+<!-- ============================== PART B 2.1 ============================== -->
+<section class="part" id="partb2-1">
+  <div class="wrap">
+    <div class="part-head">
+      <p class="part-index">Part B · 2.1</p>
+      <h2 class="part-title">Adding Time Conditioning to the UNet</h2>
+    </div>
+
+    <div class="explain">
+      <div class="explain-text">
+        <p>One-step denoising can't generate, so I switched to flow matching. A training point is a linear interpolation between noise $x_0 \sim \mathcal{N}(0, I)$ and a clean digit $x_1$:</p>
+        <p>$$x_t = (1 - t)\,x_0 + t\,x_1, \qquad u(x_t, t) = \frac{d x_t}{dt} = x_1 - x_0$$</p>
+        <p>The UNet $u_\theta(x_t, t)$ learns to predict this flow with the loss $\lVert u_\theta(x_t, t) - (x_1 - x_0) \rVert^2$.</p>
+        <p>To give the network $t$, I added an FCBlock (<code>Linear(1, D)</code> → GELU → <code>Linear(D, D)</code>). Two FCBlocks embed the scalar $t \in [0, 1]$, and their outputs are broadcast over the spatial dimensions. One goes into the first decoder stage right after the $7 \to 14$ upsampling, and the other into the second stage after the $14 \to 28$ upsampling. In my implementation the embeddings are <em>added</em> to these feature maps before the skip concatenation.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== PART B 2.2 ============================== -->
+<section class="part" id="partb2-2">
+  <div class="wrap">
+    <div class="part-head">
+      <p class="part-index">Part B · 2.2</p>
+      <h2 class="part-title">Training the Time-Conditioned UNet</h2>
+    </div>
+
+    <div class="explain">
+      <div class="explain-text">
+        <p>For each batch I sample fresh noise $x_0$ and a time $t \sim U[0, 1]$ for each image, build $x_t$, and regress the UNet's output onto $x_1 - x_0$. In this run I used $D = 128$, batch size 256, and Adam at a constant learning rate of $10^{-4}$ for 5 epochs.</p>
+      </div>
+    </div>
+
+    <figure class="wide">
+      <img src="images/b2.2_loss.png" alt="Training loss of the time-conditioned UNet">
+      <figcaption>Flow-matching loss for every iteration of the time-conditioned UNet.</figcaption>
+    </figure>
+
+    <div class="explain">
+      <div class="explain-text">
+        <p>The loss starts at about 1.4 and drops quickly. The average loss per epoch was 0.236, 0.151, 0.141, 0.134 and 0.130. It is higher than the denoiser's loss because the target $x_1 - x_0$ includes the noise itself, which is hard to predict when $t$ is close to 1.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== PART B 2.3 ============================== -->
+<section class="part" id="partb2-3">
+  <div class="wrap">
+    <div class="part-head">
+      <p class="part-index">Part B · 2.3</p>
+      <h2 class="part-title">Sampling from the Time-Conditioned UNet</h2>
+    </div>
+
+    <div class="explain">
+      <div class="explain-text">
+        <p>To sample, I start from pure noise at $t = 0$ and take 50 Euler steps of size $1/50$, $x \leftarrow x + \tfrac{1}{50}\,u_\theta(x, t)$, ending at $t = 1$.</p>
+      </div>
+    </div>
+
+    <figure class="wide narrow">
+      <img src="images/b2.3_sample.png" alt="One sample from the time-conditioned UNet">
+      <figcaption>One sample after 5 epochs of training (seed 42, 50 steps).</figcaption>
+    </figure>
+
+    <div class="explain">
+      <div class="explain-text">
+        <p>The sample has clean, digit-like strokes on a black background, but they don't come together into one recognizable digit. It looks like pieces of a 4 and a 7 drawn on top of each other. Without a class label, the model has to commit to one digit early on, from noise alone, and a time-only model this small doesn't always do that.</p>
+      </div>
+    </div>
+
+    <div class="todo">TODO (2.3): the rubric asks for a grid of samples after epochs 1, 5 and 10. Save checkpoints at those epochs and sample a grid from each. The rubric's settings for this part are $D = 64$, batch size 64, Adam $10^{-2}$ with <code>ExponentialLR</code>. This run used $D = 128$, batch 256, constant $10^{-4}$, for 5 epochs.</div>
+  </div>
+</section>
+
+<!-- ============================== PART B 2.4 ============================== -->
+<section class="part" id="partb2-4">
+  <div class="wrap">
+    <div class="part-head">
+      <p class="part-index">Part B · 2.4</p>
+      <h2 class="part-title">Adding Class Conditioning to the UNet</h2>
+    </div>
+
+    <div class="explain">
+      <div class="explain-text">
+        <p>To control which digit gets generated, I also conditioned the UNet on the class $c \in \{0, \dots, 9\}$. Instead of a one-hot vector passed through an FCBlock, I used a learned embedding table <code>nn.Embedding(11, D)</code> for each of the two decoder stages. That is mathematically the same as a linear layer applied to a one-hot vector. The 11th entry is a learned “null” class. During training, each label is replaced by the null class with probability $p_{\text{uncond}} = 0.1$, so the same network also learns the unconditional flow needed for classifier-free guidance. As with time, the class embeddings are added to the decoder feature maps at the same two places.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== PART B 2.5 ============================== -->
+<section class="part" id="partb2-5">
+  <div class="wrap">
+    <div class="part-head">
+      <p class="part-index">Part B · 2.5</p>
+      <h2 class="part-title">Training the Class-Conditioned UNet</h2>
+    </div>
+
+    <div class="explain">
+      <div class="explain-text">
+        <p>Training is the same as for the time-only model, except the class labels are passed in and randomly dropped. I followed the recommended settings: $D = 64$, batch size 64, 10 epochs, Adam with initial learning rate $10^{-2}$, and <code>ExponentialLR</code> with $\gamma = 0.1^{1/10}$, so the learning rate falls by 10× over the 10 epochs. I called <code>scheduler.step()</code> once per epoch.</p>
+        <p>To remove the scheduler, I trained a second, independent model with the same settings but a <strong>constant learning rate of $10^{-3}$</strong>. Without a schedule, $10^{-2}$ would stay too large late in training. $10^{-3}$ sits between the schedule's starting value and its final value (about $1.3 \times 10^{-3}$), so it is small enough to settle into a minimum on its own.</p>
+      </div>
+    </div>
+
+    <figure class="wide">
+      <img src="images/b2.5_loss.png" alt="Average loss per epoch, exponential scheduler versus constant learning rate">
+      <figcaption>Average flow-matching loss per epoch for the class-conditioned UNet. Blue: exponential scheduler starting at $10^{-2}$. Orange: constant $10^{-3}$.</figcaption>
+    </figure>
+
+    <div class="explain">
+      <div class="explain-text">
+        <p>The constant-rate model has lower loss for the first eight epochs (0.166 vs. 0.189 after epoch 1), because the scheduled model's $10^{-2}$ start is too aggressive at first. The two curves meet by epoch 9 and end almost the same: 0.0995 with the scheduler and 0.1003 without it. A single well-chosen constant learning rate matches the schedule's final loss.</p>
+      </div>
+    </div>
+
+    <div class="todo">TODO (2.5): the rubric asks for the loss over the whole training process. This plot shows per-epoch averages. Plot the per-iteration lists (<code>scheduled_losses</code>, <code>constant_losses</code>) instead, or add that plot as well.</div>
+  </div>
+</section>
+
+<!-- ============================== PART B 2.6 ============================== -->
+<section class="part" id="partb2-6">
+  <div class="wrap">
+    <div class="part-head">
+      <p class="part-index">Part B · 2.6</p>
+      <h2 class="part-title">Sampling from the Class-Conditioned UNet</h2>
+    </div>
+
+    <div class="explain">
+      <div class="explain-text">
+        <p>Sampling uses 300 Euler steps from pure noise with classifier-free guidance at scale $\gamma = 5$. At every step I evaluate both the conditional and the null-class velocity and combine them:</p>
+        <p>$$u = u_\theta(x_t, t, \varnothing) + \gamma\,\big(u_\theta(x_t, t, c) - u_\theta(x_t, t, \varnothing)\big)$$</p>
+        <p>Each grid shows four samples of each digit (rows 0–9) with the same starting noise at every checkpoint, so differences between grids come only from training.</p>
+      </div>
+    </div>
+
+    <div class="compare">
+      <figure class="wide" style="margin:0;">
+        <img src="images/b2.6_epoch1.png" alt="Class-conditioned samples after epoch 1">
+        <figcaption>With scheduler, after epoch 1.</figcaption>
+      </figure>
+      <figure class="wide" style="margin:0;">
+        <img src="images/b2.6_epoch5.png" alt="Class-conditioned samples after epoch 5">
+        <figcaption>With scheduler, after epoch 5.</figcaption>
+      </figure>
+    </div>
+
+    <div class="explain">
+      <div class="explain-text">
+        <p>After one epoch, only the 1s and 8s are clearly readable. Most other rows are disconnected strokes with a little leftover background noise, although some already have the right rough shape (stacked horizontal bars for the 3s and 5s). By epoch 5 the background is clean and the 0s, 1s, 3s and 7s are clearly correct. The 2s, 4s, 5s, 6s and 9s are still often malformed. The 5s in particular are stacked bars without the vertical stroke.</p>
+      </div>
+    </div>
+
+    <div class="todo">TODO (2.6): the run stopped after the epoch-5 grid. Add the epoch-10 grid for the scheduled model and the epoch-10 grid for the constant-$10^{-3}$ (no scheduler) model, then compare the two in a sentence.</div>
+  </div>
+</section>
+
 <footer>
-  <p>CS180 · Project 3A · Yoko Furukawa</p>
+  <p>CS180 · Project 3 · Yoko Furukawa</p>
 </footer>
 
 </body>
