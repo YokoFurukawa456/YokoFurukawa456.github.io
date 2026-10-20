@@ -66,8 +66,7 @@
 
     <div class="explain">
       <div class="explain-text">
-        <p>For sections 1.1 to 1.5 I used my own photo of Yosemite Falls. The <code>interpolate</code> function is a direct implementation of the equation above: <code>(1 - t) * noise + t * image</code>. I checked both endpoints: at $t = 0$ it returns exactly the noise, and at $t = 1$ it returns exactly the image.</p>
-        <p>I sampled a single noise tensor (seed 180) and reused it for $t = 0.25, 0.50, 0.75$. I kept the same noise for the later sections, because I need it in 1.4 to compute the ground-truth velocity.</p>
+        <p>A flow model is trained to predict the velocity at time t starting from noisy images. We set <code>t=0</code> to a noisy image and <code>t=1</code> to a clean image. For this task, I interpolated the manifold between these two endpoints by blending the noisy image and the clean image, and represented each image as <code>(1 - t) * noise + t * clean</code>. I checked both endpoints so it returns both exactly the noise and exactly the image. </p>
       </div>
     </div>
 
@@ -83,6 +82,7 @@
 
     <div class="explain">
       <div class="explain-text">
+        <p>I sampled a single noise tensor (seed 180) and reused it for $t=0.25, 0.5, 0.75$. </p>
         <p>At $t = 0.25$ the image is mostly noise, and I can only just make out the dark tree on the right. By $t = 0.75$ the scene is clearly visible with a layer of grain on top.</p>
       </div>
     </div>
@@ -353,17 +353,36 @@
 
     <div class="explain">
       <div class="explain-text">
-        <p>This uses the same <code>edit</code> function as 3.1, but replaces the generic photo prompt with a prompt that describes the edit I want. The noise erases part of the image and the new prompt decides what fills it back in. I used the same seven starting times on the Campanile and my two personal images:</p>
+        <p>This uses the same <code>edit</code> function as 3.1, but replaces the generic photo prompt with a prompt that describes the edit I want. The noise erases part of the image and the new prompt decides what fills it back in. I used the same seven starting times on the Campanile, the Chiikawa web image and my drawing of Usagi:</p>
         <table class="params">
           <tr><th>Image</th><th>Prompt</th></tr>
           <tr><td>Campanile</td><td>“a beautiful watercolor painting of the UC Berkeley Campanile surrounded by cherry blossoms”</td></tr>
-          <tr><td>Cat</td><td>“a cute fluffy cat sitting in a magical forest, whimsical storybook illustration”</td></tr>
-          <tr><td>Llama</td><td>“a cute llama wearing a colorful knitted sweater, in a sunny meadow”</td></tr>
+          <tr><td>Chiikawa</td><td>“a cute fluffy cat sitting in a magical forest, whimsical storybook illustration”</td></tr>
+          <tr><td>Usagi</td><td>“a cute llama wearing a colorful knitted sweater, in a sunny meadow”</td></tr>
         </table>
       </div>
     </div>
 
-    <div class="todo">TODO (3.2): add the three result figures (<code>text_edit_campanile.png</code>, <code>text_edit_my_image_1.png</code>, <code>text_edit_my_image_2.png</code>). Each should show the original and all seven starting times, with the prompt in the caption. Then add a short paragraph on where the prompt wins (low $t_{\text{start}}$), where the original wins (high $t_{\text{start}}$), and which in-between time gives the best edit. Before running, fix <code>TEST_IMAGE_PATHS</code> so <code>my_image_1</code> is the cat and <code>my_image_2</code> is the llama. Right now <code>my_image_1</code> points to the Campanile.</div>
+    <figure class="wide">
+      <img src="images/3.2_1.png" alt="Campanile text-guided edits at seven starting times">
+      <figcaption>The Campanile with “a beautiful watercolor painting of the UC Berkeley Campanile surrounded by cherry blossoms”. Original, then $t_{\text{start}} = 0.02$ through $0.50$.</figcaption>
+    </figure>
+
+    <figure class="wide">
+      <img src="images/3.2_2.png" alt="Chiikawa text-guided edits at seven starting times">
+      <figcaption>Chiikawa with “a cute fluffy cat sitting in a magical forest, whimsical storybook illustration”. Original, then $t_{\text{start}} = 0.02$ through $0.50$.</figcaption>
+    </figure>
+
+    <figure class="wide">
+      <img src="images/3.2_3.png" alt="Usagi text-guided edits at seven starting times">
+      <figcaption>My drawing of Usagi with “a cute llama wearing a colorful knitted sweater, in a sunny meadow”. Original, then $t_{\text{start}} = 0.02$ through $0.50$.</figcaption>
+    </figure>
+
+    <div class="explain">
+      <div class="explain-text">
+        <p>At low $t_{\text{start}}$ the prompt wins: at $0.02$ to $0.04$ the Campanile becomes an orange European-style bell tower framed by cherry blossoms, Chiikawa becomes a sketched kitten in a forest, and Usagi becomes a full llama in a knitted sweater. At $0.25$ and $0.50$ the original wins and only the texture changes, such as a light watercolor wash on the tower. The best edits are in between. Around $0.06$ to $0.10$ Usagi keeps its ears and round body but gains a knitted hat and llama fur, and Chiikawa keeps its pose while picking up whiskers and a forest background. The Campanile looks best around $0.10$ to $0.14$, where it keeps its real shape but is painted in watercolor.</p>
+      </div>
+    </div>
   </div>
 </section>
 
@@ -380,11 +399,21 @@
         <p>A visual anagram is a single image that shows one thing upright and something else when rotated by 180°. Let $F$ be a 180° rotation, which flips both spatial axes. At every Euler step I compute two guided velocities and average them:</p>
         <p>$$v = \tfrac{1}{2}\Big( v_{\text{cfg}}(x_t, t, c_a) + F\big(v_{\text{cfg}}(F(x_t), t, c_b)\big) \Big)$$</p>
         <p>I implemented this in <code>visual_anagrams</code>. The first term denoises the image toward prompt $a$ as it is. The second rotates the image, denoises it toward prompt $b$, and rotates that velocity back. Since $F(F(x)) = x$ (I checked this), both views are pushed toward their own prompt at every step. I integrate from pure noise with the same Euler sampler.</p>
-        <p>Prompt pairs: “an oil painting of an old man” / “an oil painting of people around a campfire”, and “a lithograph of a snowy mountain village” / “a lithograph of a horse”.</p>
+        <p>Prompt pairs: “an oil painting of an old man” / “an oil painting of people around a campfire”, and a baby cow's face / a cloudy Swiss mountain meadow (full prompts in the figure).</p>
       </div>
     </div>
 
-    <div class="todo">TODO (3.3): add two illusions (<code>anagram_views_0.png</code>, <code>anagram_views_1.png</code>). Show each one upright and rotated 180°, labeled with its prompt. Add a sentence on how well each view reads and how many seeds or prompts you tried.</div>
+    <figure class="wide">
+      <img src="images/3.3_anagram_1.png" alt="Visual anagram: old man upright, people around a campfire rotated">
+      <figcaption>Upright: “an oil painting of an old man”. Rotated 180°: “an oil painting of people around a campfire”.</figcaption>
+    </figure>
+
+    <figure class="wide">
+      <img src="images/3.3_anagram_2.png" alt="Visual anagram: baby cow face upright, Swiss mountain meadow rotated">
+      <figcaption>Upright: an oil painting of a baby cow's face. Rotated 180°: an oil painting of a cloudy Swiss mountain meadow.</figcaption>
+    </figure>
+
+    <div class="todo">TODO (3.3): add a sentence on how well each view reads and how many seeds or prompts you tried.</div>
   </div>
 </section>
 
