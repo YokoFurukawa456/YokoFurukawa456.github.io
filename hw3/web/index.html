@@ -99,8 +99,8 @@
 
     <div class="explain">
       <div class="explain-text">
-        <p>As a baseline, I tried to denoise each input without the model. Since $x_t$ only contains $t$ times the clean image, I first divided by $t$ to restore the image amplitude, then applied a Gaussian blur: $\hat{x}_1 = G_\sigma * (x_t / t)$. Dividing by $t$ only fixes the brightness and does not remove any noise. The blur does the denoising, because averaging nearby pixels partly cancels independent, zero-mean noise. I swept $\sigma \in \{1, 2, 4, 8, 16\}$ and kept the blur with the lowest mean squared error against the known clean image.</p>
-        <p>The noisier the input, the larger the best $\sigma$: $\sigma = 1$ at $t = 0.75$, $\sigma = 4$ at $t = 0.50$, and $\sigma = 8$ at $t = 0.25$. A larger blur averages away more noise but also removes the detail of the scene. At $t = 0.25$ the result is only a blurry outline of the trees and sky.</p>
+        <p>In this task, I tried to denoise each input without the model. Since $x_t$ only contains $t$ times the clean image, I first divided by $t$ to restore the image amplitude, then applied a Gaussian blur: $\hat{x}_1 = G_\sigma * (x_t / t)$. Dividing by $t$ only fixes the brightness and does not remove any noise. The blur does the denoising, because averaging nearby pixels partly cancels independent, zero-mean noise. I swept $\sigma \in \{1, 2, 4, 8, 16\}$ and kept the blur with the lowest mean squared error against the known clean image.</p>
+        <p>When you denoise the noisy input, we want to have larder $\sigma$. A larger blur averages away more noise but also removes the detail of the scene. At $t = 0.25$ the result is only a blurry outline of the trees and sky.</p>
       </div>
     </div>
 
