@@ -133,8 +133,9 @@
       <div class="explain-text">
         <p>In this task, I implemented this in <code>one_step_denoise</code> that predicts a velocity, not noise, so the prediction is added (scaled by 1-t) rather than subtracted. </p>
         <p>$$\hat{x}_1 = x_t + (1 - t)\, v_\theta(x_t, t, c)$$</p>
-        <p>If the model's velocity were exactly x1-, then one jump of length 1-t would land on the clean image.</p>
+        <p>If the model's velocity were exactly $x_1-\epsilon$, then one jump of length $1-t$ would land on the clean image.</p>
         <p>Before using this model, I checked that the predicted velocity has the same shape, dtype and device as the image and contains only finite values.</p>
+
       </div>
     </div>
 
@@ -161,7 +162,7 @@
 
     <div class="explain">
       <div class="explain-text">
-        <p>To see what the model adds in that one step, I compared the predicted update $(1 - t)\hat{v}_t$ with the ground-truth update. Because I saved the noise, the ground-truth velocity is $v_{\text{gt}} = x_1 - \epsilon$, so $(1 - t)v_{\text{gt}} = x_1 - x_t$. That is exactly what would recover my original photo.</p>
+        <p>To see what the model adds in that one step, I compared the predicted update $(1 - t)\hat{v}_t$ with the ground-truth update. Because I saved the noise, the ground-truth velocity is $v_{\text{gt}} = x_1 - \epsilon$, so $(1 - t)v_{\text{gt}} = x_1 - x_t$. I used this value to recover my original photo.</p>
         <p>For the error map I took the RMS difference across the RGB channels at each pixel:</p>
         <p>$$E_t = \sqrt{\operatorname{mean}_{\text{RGB}}\big([(1 - t)(\hat{v}_t - v_{\text{gt}})]^2\big)}$$</p>
         <p>The updates are drawn on one shared symmetric color scale, with zero shown as middle gray. The error maps also share one linear scale across all three times, so they can be compared directly.</p>
@@ -180,7 +181,7 @@
 
     <div class="explain">
       <div class="explain-text">
-        <p>The predicted and ground-truth updates look very similar at all three times. Both contain the scene with the noise removed. As $t$ grows, both updates fade toward gray because the factor $(1 - t)$ shrinks and less correction is needed. The error is largest at $t = 0.25$ and is concentrated in high-frequency regions such as the tree branches and the edges of the waterfall. The flat sky and the smooth shadowed areas have low error. This matches 1.3: the model gets the coarse structure right, and the fine texture is where it has to guess.</p>
+        <p>The predicted and ground-truth updates look very similar at all three times. As $t$ grows, both updates fade toward gray because the factor $(1 - t)$ shrinks and less correction is needed. The error is largest at $t = 0.25$ and is concentrated in high-frequency regions such as the tree branches and the edges of the waterfall. The flat sky and the smooth shadowed areas have low error. The model gets the coarse structure right, and the fine texture is where it has to guess.</p>
       </div>
     </div>
   </div>
