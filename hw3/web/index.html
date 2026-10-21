@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Project 3A — The Power of Flow Models</title>
+<title>Project 3 — The Power of Flow Models</title>
 <link rel="stylesheet" href="style.css">
 <script>
   window.MathJax = {
@@ -280,7 +280,9 @@
 
     <div class="explain">
       <div class="explain-text">
-        <p>To edit an existing image, I add noise to it, so it becomes $x_{t_{\text{start}}} = (1 - t_{\text{start}})\epsilon + t_{\text{start}} x_1$. Then I run the Euler sampler with CFG from $t_{\text{start}}$ to 1. The model has to “fill in” what the noise destroyed, so the result is a new image that keeps some of the original. I used the starting times $0.02, 0.04, 0.06, 0.10, 0.14, 0.25, 0.50$ with the prompt “a high quality photo”, $w = 7$ and $h = 0.02$.</p>
+        <p>To perform image-to-image editing, I add noise to an existing image, and created</p>
+        <p>$x_{t_{\text{start}}} = (1 - t_{\text{start}})\epsilon + t_{\text{start}} x_1$</p>
+        <p>Then I run the Euler sampler with CFG from $t_{\text{start}}$ to 1. The model has to “fill in” what the noise destroyed, so the result is a new image that keeps some of the original. I used the starting times $0.02, 0.04, 0.06, 0.10, 0.14, 0.25, 0.50$ with the prompt “a high quality photo”, $w = 7$ and $h = 0.02$.</p>
         <p>A small $t_{\text{start}}$ means almost pure noise, so only the coarsest information (overall brightness and color layout) survives. A large $t_{\text{start}}$ keeps most of the original image.</p>
       </div>
     </div>
@@ -302,7 +304,7 @@
 
     <div class="explain">
       <div class="explain-text">
-        <p>All three show the same progression. At $t_{\text{start}} = 0.02$ to $0.06$ the model invents something unrelated that only shares the color layout: the Campanile becomes a white pillar against blue sky, the cat becomes a gray appliance, and the llama becomes a man in a white shirt. That fits the portrait bias I saw in 1.6. Around $t_{\text{start}} = 0.10$ to $0.14$ the subject's silhouette is restored, but with simplified detail: a smooth obelisk instead of a brick tower, and a hairless, seal-like llama. By $0.25$ and $0.50$ the edit is a close, slightly cleaned-up version of the original.</p>
+        <p>All three show the same progression. At $t_{\text{start}} = 0.02$ to $0.06$ the model displays something unrelated that only shares the color, but at around $t_{\text{start}} = 0.10$ to $0.14$ the subject's silhouette is restored. By $0.25$ and $0.50$ the edit is a close, slightly cleaned-up version of the original.</p>
       </div>
     </div>
 
@@ -310,7 +312,7 @@
 
     <div class="explain">
       <div class="explain-text">
-        <p>I repeated the same procedure on one image from the web (a Chiikawa character) and two of my own drawings (Momonga and Usagi), using the same seven starting times.</p>
+        <p>I repeated the same procedure on one image from the web (a Chiikawa character) and two of the drawings (Momonga and Usagi), using the same seven starting times.</p>
       </div>
     </div>
 
@@ -321,17 +323,17 @@
 
     <figure class="wide">
       <img src="images/3.1_5_momonga.png" alt="Momonga drawing edits at seven starting times">
-      <figcaption>My drawing of Momonga. Original, then $t_{\text{start}} = 0.02$ through $0.50$.</figcaption>
+      <figcaption>A drawing of Momonga. Original, then $t_{\text{start}} = 0.02$ through $0.50$.</figcaption>
     </figure>
 
     <figure class="wide">
       <img src="images/3.1_6_usagi.png" alt="Usagi drawing edits at seven starting times">
-      <figcaption>My drawing of Usagi. Original, then $t_{\text{start}} = 0.02$ through $0.50$.</figcaption>
+      <figcaption><A drawing of Usagi. Original, then $t_{\text{start}} = 0.02$ through $0.50$.</figcaption>
     </figure>
 
     <div class="explain">
       <div class="explain-text">
-        <p>The drawings are a fun test because “a high quality photo” pushes the model toward realism. At the smallest starting times it turns the mostly white canvas into photos of white objects: a tablet, a bowl, a sticker with made-up lettering, a perfume bottle, and again a man in a white T-shirt. At $t_{\text{start}} = 0.04$ to $0.06$ the black outlines turn into real-looking objects, such as a rubber band or a pair of glasses with button eyes. From about $0.10$ on, the model keeps the line-art style and the characters come back. It only loses small details, like the blush marks and the exact facial expression, until those return around $0.25$ to $0.50$.</p>
+        <p>At the smallest starting times the model displays something that are very random, such as tshirt and perfume bottle. At $t_{\text{start}} = 0.04$ to $0.06$ it recovers outline with real-looking objects, such as a rubber band or a pair of glasses with button eyes. From about $0.10$ on, the model keeps the line-art style and the characters come back. It only loses small details, like the blush marks and the exact facial expression, until those return around $0.25$ to $0.50$.</p>
       </div>
     </div>
   </div>
@@ -362,7 +364,7 @@
       <figcaption>The Campanile with “a beautiful watercolor painting of the UC Berkeley Campanile surrounded by cherry blossoms”. Original, then $t_{\text{start}} = 0.02$ through $0.50$.</figcaption>
     </figure>
 
-    <figure class="wide">
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 <figure class="wide">
       <img src="images/3.2_2.png" alt="Chiikawa text-guided edits at seven starting times">
       <figcaption>Chiikawa with “a cute fluffy cat sitting in a magical forest, whimsical storybook illustration”. Original, then $t_{\text{start}} = 0.02$ through $0.50$.</figcaption>
     </figure>
@@ -393,7 +395,7 @@
         <p>A visual anagram is a single image that shows one thing upright and something else when rotated by 180°. Let $F$ be a 180° rotation, which flips both spatial axes. At every Euler step I compute two guided velocities and average them:</p>
         <p>$$v = \tfrac{1}{2}\Big( v_{\text{cfg}}(x_t, t, c_a) + F\big(v_{\text{cfg}}(F(x_t), t, c_b)\big) \Big)$$</p>
         <p>I implemented this in <code>visual_anagrams</code>. The first term denoises the image toward prompt $a$ as it is. The second rotates the image, denoises it toward prompt $b$, and rotates that velocity back. Since $F(F(x)) = x$ (I checked this), both views are pushed toward their own prompt at every step. I integrate from pure noise with the same Euler sampler.</p>
-        <p>Prompt pairs: “an oil painting of an old man” / “an oil painting of people around a campfire”, and a baby cow's face / a cloudy Swiss mountain meadow (full prompts in the figure).</p>
+        <p>Prompt pairs: “an oil painting of an old man” / “an oil painting of people around a campfire”, a baby cow's face / a cloudy Swiss mountain meadow, and a white wolf / a white mountain in a snowy forest (full prompts in the figures).</p>
       </div>
     </div>
 
@@ -407,7 +409,16 @@
       <figcaption>Upright: an oil painting of a baby cow's face. Rotated 180°: an oil painting of a cloudy Swiss mountain meadow.</figcaption>
     </figure>
 
-    <div class="todo">TODO (3.3): add a sentence on how well each view reads and how many seeds or prompts you tried.</div>
+    <figure class="wide">
+      <img src="images/3.3_anagram_3.png" alt="Visual anagram: white wolf upright, white mountain rotated">
+      <figcaption>Upright: a dramatic painting of a white wolf in a snowy forest. Rotated 180°: a dramatic painting of a white mountain above a snowy forest.</figcaption>
+    </figure>
+
+    <div class="explain">
+      <div class="explain-text">
+        <p>The model doesn't closely follow the details in my prompt sentences, so getting both views to work took several tries: 7 attempts for the cow / meadow pair and 5 for the wolf / mountain pair.</p>
+      </div>
+    </div>
   </div>
 </section>
 
@@ -424,23 +435,22 @@
         <p>This is the generative version of the hybrid images from Project 2, adapted from Factorized Diffusion and implemented in <code>make_hybrids</code>. At each Euler step I compute guided velocities for both prompts at the same $x_t$ and $t$. I keep the low frequencies of prompt $a$ and the high frequencies of prompt $b$:</p>
         <p>$$v = \text{LP}(v_a) + \big(v_b - \text{LP}(v_b)\big)$$</p>
         <p>$\text{LP}$ is a Gaussian blur with $\sigma = 16$ and kernel size 265 at $512 \times 512$. Seen from far away (or at a small size) only the low frequencies are visible, so prompt $a$ shows. Up close, the high-frequency detail of prompt $b$ takes over.</p>
-        <p>Prompt pairs: apple / apple pie, and flower / butterfly.</p>
+        <p>Prompt pairs (distant / close): “a lithograph of basketfull of apples” / “a lithograph of an apple pie”, and “a lithograph of butterflies” / “a lithograph of a flower”.</p>
       </div>
     </div>
 
     <figure class="wide narrow">
       <img src="images/3.4_apple_applepie.png" alt="Hybrid image of apples and an apple pie">
       <img src="images/3.4_apple_applepie.png" alt="Same hybrid reduced to 64 by 64" style="width:64px; height:64px; margin:16px auto 0;">
-      <figcaption>Apple / apple pie hybrid. Top: full size (near view). Bottom: reduced to 64×64 (distant view).</figcaption>
+      <figcaption>Top: full size, close prompt “a lithograph of an apple pie”. Bottom: reduced to 64×64, distant prompt “a lithograph of basketfull of apples”.</figcaption>
     </figure>
 
     <figure class="wide narrow">
       <img src="images/3.4_flower_butterfly.png" alt="Hybrid image of a flower and a butterfly">
       <img src="images/3.4_flower_butterfly.png" alt="Same hybrid reduced to 64 by 64" style="width:64px; height:64px; margin:16px auto 0;">
-      <figcaption>Flower / butterfly hybrid. Top: full size (near view). Bottom: reduced to 64×64 (distant view).</figcaption>
+      <figcaption>Top: full size, close prompt “a lithograph of a flower”. Bottom: reduced to 64×64, distant prompt “a lithograph of butterflies”.</figcaption>
     </figure>
 
-    <div class="todo">TODO (3.4): give the exact prompts for each pair and say which one is the distant (low-frequency) prompt and which is the close one. Add a sentence on whether both readings come through.</div>
   </div>
 </section>
 
