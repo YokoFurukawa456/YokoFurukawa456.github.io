@@ -294,6 +294,13 @@ figure.wide img{
 
 figure.wide.narrow{ max-width: 460px; }
 
+/* Images side by side inside a figure; stacks on narrow screens. */
+.img-row{
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+}
+
 figure.wide figcaption{
   font-family: 'Inter', sans-serif;
   font-size: 13px;
