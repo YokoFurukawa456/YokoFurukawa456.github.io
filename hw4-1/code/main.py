@@ -17,16 +17,16 @@ SCALE = 0.25  # originals are 5712x4284, work at 1428x1071
 # Add more pairs here; missing files are skipped.
 MOSAICS = [
     ("sf", "sf1.JPG", "sf2.JPG"),
-    ("sather", "sather9.JPG", "sather10.JPG"),
-    # ("set3", "set3_left.JPG", "set3_right.JPG"),
+    ("sather", "sather1.JPG", "sather2.JPG"),
+    ("dorm", "dorm1.JPG", "dorm2.JPG"),
 ]
 
 # Rectification: (name, image, target aspect ratio width/height).
 # Corners (top-left, top-right, bottom-right, bottom-left) are read from
 # data/points/<name>.json, made with select_points.py.
 RECTIFY = [
-    # ("poster", "poster.JPG", 2/3),
-    # ("tile", "floor.JPG", 1.0),
+    ("poster", "posters.JPG", 8.5 / 11),  # letter-size flyer
+    ("tile", "tiles.JPG", 1.0),           # square paving tile
 ]
 
 os.makedirs(OUT_DIR, exist_ok=True)
@@ -164,7 +164,9 @@ def inverse_map(im, H, canvas):
     xs, ys = np.meshgrid(np.arange(out_w), np.arange(out_h))
     p = np.stack([xs.ravel(), ys.ravel(), np.ones(out_h*out_w)])
     p_prime = H_inv @ p
-    p_prime /= p_prime[2]
+    behind = p_prime[2] <= 0  # past the horizon: no real source pixel, mark out of bounds
+    p_prime /= np.where(behind, 1, p_prime[2])
+    p_prime[:2, behind] = -1
     return p_prime[0], p_prime[1], out_h, out_w
 
 
@@ -217,7 +219,7 @@ def zoom_compare(nn, bil, size=110, zoom=4):
     return side_by_side(crops)
 
 
-def rectify(name, filename, aspect):
+def rectify(name, filename, aspect, margin=2):
     path = os.path.join(POINTS_DIR, f"{name}.json")
     if not os.path.exists(os.path.join(DATA_DIR, filename)) or not os.path.exists(path):
         print(f"skipping rectification '{name}': need data/{filename} and data/points/{name}.json")
@@ -232,7 +234,13 @@ def rectify(name, filename, aspect):
     target = np.array([[x, y], [x + rw, y], [x + rw, y + rh], [x, y + rh]])
     H = computeH(corners, target)
 
-    out = warpImageBilinear(im, H)
+    # A ground plane stretches without bound toward the horizon, so keep the output
+    # to the bounding box clipped to `margin` rectangle sizes around the target
+    bx, by, bw, bh = bounding_box(H, *im.shape[:2])
+    x0, y0 = max(bx, int(x - margin * rw)), max(by, int(y - margin * rh))
+    x1 = min(bx + bw, int(x + (margin + 1) * rw))
+    y1 = min(by + bh, int(y + (margin + 1) * rh))
+    out = warpImageBilinear(im, H, (x0, y0, x1 - x0, y1 - y0))
     vis = im.copy()
     cv2.polylines(vis, [corners.astype(np.int32)], True, (0, 220, 255), 3)
     save(f"a3_rect_{name}.jpg", side_by_side([vis, out[..., :3]]))

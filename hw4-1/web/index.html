@@ -35,15 +35,7 @@
 
     <div class="explain">
       <div class="explain-text">
-        <p>In this part of the project I stitched photos into a mosaic. I shot photos from a fixed point, recovered the homography between each pair, warped one image into the other's frame with my own inverse warping, and blended the results. I didn't use any of the built-in homography or warping functions (<code>cv2.findHomography</code>, <code>cv2.warpPerspective</code>, etc.). I wrote <code>computeH</code>, both interpolation methods, and the blending myself, using only NumPy for the linear algebra.</p>
-        <p>The originals are $5712 \times 4284$. I downscaled them by $0.25$ to $1428 \times 1071$ before processing, which keeps the warps fast and the mosaics a reasonable size. OpenCV loads images in BGR order, so I convert to RGB before plotting with matplotlib. I treat pixel $(0, 0)$ as the <em>center</em> of the top-left pixel, which makes the interpolation arithmetic simpler.</p>
-        <table class="params">
-          <tr><th>Setting</th><th>Value</th></tr>
-          <tr><td>Working resolution</td><td>$1428 \times 1071$ (scale 0.25)</td></tr>
-          <tr><td>Homography solver</td><td>least squares on $Ah = b$, $h_{33} = 1$</td></tr>
-          <tr><td>RANSAC</td><td>3000 iterations, 2 px inlier threshold, seed 180</td></tr>
-          <tr><td>Blending</td><td>2-level Laplacian pyramid, $\sigma = 4$</td></tr>
-        </table>
+        <p>In this project, I learned how to stitch photos into a mosaic. I shot multiple photos from a fixed point, recovered the homography between each pair, warped one image into the other's frame, and blended the results. Using only NumPy for the linear algebra, I implemented each of those methodsfrom scratch.</p>
       </div>
     </div>
   </div>
@@ -56,10 +48,10 @@
       <p class="part-index">Part A.1</p>
       <h2 class="part-title">Shoot the Pictures</h2>
     </div>
-    <p>For this project, I took multiple images of San Francisco skyline to build the image stitching based on. I kept in mind to stay in the same position and take photos as close together in time as possible so panorama stitching looks convincing in the result. Also, I kept in mind to overlap images, so I have information I can use to glue images together. Also, to test out the effect of zooming in the image stitching, I took images at different focal lengths.</p>
     <div class="explain">
       <div class="explain-text">
-        <p>For the transform between two photos to be a pure homography, the camera has to rotate about its center of projection without translating. If it moves, nearby objects shift relative to far ones (parallax), and no single homography can line them up. The skyline set was shot from a hilltop, so almost everything is far away and close to a plane at infinity. The only nearby things are the trees and the dirt slope in the foreground.</p>
+        <p>For this part of the project, I took multiple images of San Francisco skyline, Sather Gate, and my dorm Unit 2 to build the image stitching based on. </p>
+    <p>I kept in mind to stay in the same position (fix center of projection) and take photos as close together in time as possible so panorama stitching looks convincing in the result. Also, I tried to take images that has overlaps, so I have information I can use to glue them together. To test out the effect of zooming in the image stitching, I took images at different focal lengths as well.</p>
       </div>
     </div>
 
@@ -70,18 +62,14 @@
 
     <figure class="wide">
       <img src="images/a1_sather_sources.jpg" alt="Two overlapping photos of Sather Gate">
-      <figcaption>Set 2, Sather Gate. Left: <code>sather9</code>, the right half of the gate (reference image). Right: <code>sather10</code>, turned left to take in the main arch.</figcaption>
+      <figcaption>Set 2, Sather Gate. Left: <code>sather1</code>, the right half of the gate (reference image). Right: <code>sather2</code>, turned left to take in the main arch.</figcaption>
     </figure>
 
-    <div class="explain">
-      <div class="explain-text">
-        <p>I took ten photos at Sather Gate within about 30 seconds, standing in one spot and turning the camera, some at different zoom levels. To choose a pair for the mosaic, I ran my matching on all 45 pairs and compared how many correspondences survived. I used <code>sather9</code> and <code>sather10</code>. They overlap heavily (1127 inliers), and together they cover the whole gate. Some pairs scored higher but were worse choices: one image was mostly a zoomed-in part of the other, or the second image added only sky.</p>
-      </div>
-    </div>
+    <figure class="wide">
+      <img src="images/a1_dorm_sources.jpg" alt="Two overlapping photos of a dorm courtyard">
+      <figcaption>Set 3, dorm courtyard. Left: <code>dorm1</code>, the building and courtyard (reference image). Right: <code>dorm2</code>, turned left toward the two steel pillars, more zoomed in.</figcaption>
+    </figure>
 
-    <div class="todo">
-      <p><strong>TODO:</strong> A.4 needs a third mosaic. Put the photos in <code>hw4-1/data/</code>, add a line to <code>MOSAICS</code> in <code>main.py</code>, rerun, and add <code>images/a1_&lt;name&gt;_sources.jpg</code> here.</p>
-    </div>
   </div>
 </section>
 
@@ -95,10 +83,11 @@
 
     <div class="explain">
       <div class="explain-text">
-        <p>A homography maps a point $p = (x, y, 1)$ to $p' = Hp$, where $H$ is $3 \times 3$. Since $H$ is only defined up to scale, I fix $h_{33} = 1$, leaving 8 unknowns. Writing out $u = \frac{h_{11}x + h_{12}y + h_{13}}{h_{31}x + h_{32}y + 1}$ (and the same for $v$) and multiplying through by the denominator makes each correspondence $(x, y) \to (u, v)$ give two linear equations:</p>
+        <p>In this step, I impremented <code>computeH(im1_pts, im2_pts)</code> function.</p>
+        <p>A homography maps a point $p = (x, y, 1)$ to $p' = Hp$. We get 8 unknowns, and I fix $h_{33} = 1$ to remove the scale ambiguity. Each point correspondence gives two linear equations below. </p>
         <p>$$\begin{bmatrix} x & y & 1 & 0 & 0 & 0 & -ux & -uy \\ 0 & 0 & 0 & x & y & 1 & -vx & -vy \end{bmatrix} \begin{bmatrix} h_{11} \\ h_{12} \\ \vdots \\ h_{32} \end{bmatrix} = \begin{bmatrix} u \\ v \end{bmatrix}$$</p>
         <p><code>computeH(im1_pts, im2_pts)</code> stacks these rows for all $n$ points into $A h = b$. With $n = 4$ there is exactly one solution, but a few pixels of error in any point changes $H$ a lot. With $n &gt; 4$ the system is overdetermined, so I solve it in the least-squares sense with <code>np.linalg.lstsq</code>.</p>
-        <p><strong>Correspondences.</strong> Instead of clicking points by hand, I detected SIFT features in both images (<code>cv2.SIFT_create</code>) and matched them with Lowe's ratio test (0.75). For the San Francisco pair, that gave 963 candidate matches. Some of these are wrong, and others sit on the nearby trees, which don't follow the same homography because of parallax. To drop them, I wrote a RANSAC loop around my own <code>computeH</code>. It fits $H$ to 4 random matches, counts how many matches land within 2 px, and keeps the largest such set. That left <strong>767 inliers</strong>, and refitting $H$ on all of them by least squares gives a mean reprojection error of <strong>0.87 px</strong> (max 2.80 px). I also wrote <code>select_points.py</code>, a <code>ginput</code> clicking tool. Any hand-clicked points it saves are used in place of the automatic matches.</p>
+        <p><strong>Correspondences Visualized</strong></p>
       </div>
     </div>
 
@@ -109,7 +98,7 @@
 
     <div class="explain">
       <div class="explain-text">
-        <p>I warp image 2 into image 1's frame, so the system maps points in image 2 to points in image 1. Here are the first three correspondences' rows of $A h = b$ (all 767 points give 1534 rows):</p>
+        <p>Here are the first three correspondences' rows of SF skyline image:</p>
         <p>$$\begin{bmatrix}
           5.099 & 627.7 & 1 & 0 & 0 & 0 & -4197 & -516700 \\
           0 & 0 & 0 & 5.099 & 627.7 & 1 & -3579 & -440500 \\
@@ -121,7 +110,6 @@
         \end{bmatrix} h = \begin{bmatrix} 823.2 \\ 701.8 \\ 830.1 \\ 669.1 \\ 831.8 \\ 724.3 \\ \vdots \end{bmatrix}$$</p>
         <p>The recovered homography:</p>
         <p>$$H = \begin{bmatrix} 0.3237 & 0.2259 & 721.7 \\ -0.3033 & 0.9367 & 151.2 \\ -0.000511 & 0.0000843 & 1 \end{bmatrix}$$</p>
-        <p>The large $h_{13} \approx 722$ is the horizontal shift: image 2 lands to the right of image 1. The non-zero bottom row is the perspective part. It's what makes image 2 grow taller toward its far edge once warped.</p>
       </div>
     </div>
 
@@ -132,7 +120,7 @@
 
     <div class="explain">
       <div class="explain-text">
-        <p>For Sather Gate, the ratio test kept 1257 matches and RANSAC kept 1127 inliers, with a mean reprojection error of <strong>0.90 px</strong> (max 2.31 px). Nearly all the inliers are on the gate and the trees behind it. None are on the people walking through, because they moved between the two shots and don't fit the homography. The first rows of the system:</p>
+        <p>Here are the first three correspondences' rows of Sather Gate image:</p>
         <p>$$\begin{bmatrix}
           452.5 & 542.2 & 1 & 0 & 0 & 0 & -2031 & -2434 \\
           0 & 0 & 0 & 452.5 & 542.2 & 1 & -129500 & -155100 \\
@@ -144,7 +132,28 @@
         \end{bmatrix} h = \begin{bmatrix} 4.5 \\ 286.2 \\ 5.3 \\ 367.4 \\ 6.5 \\ 347.2 \\ \vdots \end{bmatrix}$$</p>
         <p>The recovered homography:</p>
         <p>$$H = \begin{bmatrix} 1.393 & -0.01755 & -615.3 \\ 0.1577 & 1.363 & -455.4 \\ 0.000311 & 0.000181 & 1 \end{bmatrix}$$</p>
-        <p>The diagonal entries of about $1.39$ mean <code>sather10</code> has to be enlarged by roughly 1.4× to match. In other words, <code>sather9</code> was taken more zoomed in, which a homography handles without any extra steps. The negative $h_{13}$ moves <code>sather10</code> to the left of the reference.</p>
+      </div>
+    </div>
+
+    <figure class="wide">
+      <img src="images/a2_dorm_points.jpg" alt="Matched points plotted on both dorm images">
+      <figcaption>Dorm courtyard: 30 of the 505 inlier correspondences.</figcaption>
+    </figure>
+
+    <div class="explain">
+      <div class="explain-text">
+        <p>Lastly, here are the first three correspondences' rows of unit 2 image:</p>
+        <p>$$\begin{bmatrix}
+          324.3 & 249.6 & 1 & 0 & 0 & 0 & -3409 & -2623 \\
+          0 & 0 & 0 & 324.3 & 249.6 & 1 & -179700 & -138300 \\
+          325.0 & 247.6 & 1 & 0 & 0 & 0 & -3765 & -2868 \\
+          0 & 0 & 0 & 325.0 & 247.6 & 1 & -179500 & -136700 \\
+          345.3 & 394.0 & 1 & 0 & 0 & 0 & -5006 & -5713 \\
+          0 & 0 & 0 & 345.3 & 394.0 & 1 & -234100 & -267100 \\
+          & & & & \vdots & & &
+        \end{bmatrix} h = \begin{bmatrix} 10.5 \\ 554.0 \\ 11.6 \\ 552.3 \\ 14.5 \\ 678.0 \\ \vdots \end{bmatrix}$$</p>
+        <p>The recovered homography:</p>
+        <p>$$H = \begin{bmatrix} 1.139 & -0.1292 & -326.4 \\ 0.3228 & 0.8632 & 291.9 \\ 0.000428 & -0.000133 & 1 \end{bmatrix}$$</p>
       </div>
     </div>
   </div>
@@ -160,12 +169,15 @@
 
     <div class="explain">
       <div class="explain-text">
-        <p>I used <strong>inverse warping</strong>. Pushing every source pixel forward through $H$ leaves holes wherever the image gets stretched. Instead, for every <em>output</em> pixel I apply $H^{-1}$ to find where it came from in the source, then sample the source there.</p>
-        <p>To size the output, I pass the four corners of the source image through $H$ and take their bounding box. I then left-multiply $H$ by a translation (<code>translate_homography</code>) so the box starts at $(0, 0)$. Each warp returns a 4-channel image, and the extra channel is an alpha mask that is 1 where the output pixel has a value and 0 where it falls outside the source. The blending step uses this mask.</p>
-        <p>The first version looped over pixels in Python, which took minutes on the full-resolution photos. The final version is vectorized. <code>np.meshgrid</code> builds every output coordinate at once as a $3 \times N$ homogeneous array, a single matrix multiply by $H^{-1}$ maps them all, and I divide by the third coordinate.</p>
+        <p>In this part of the project, I impremented <code> warpImageNearestNeighbor(im, H)</code> and <code>warpImageBilinear(im, H)</code> using inverse warping. To do so, I broke down the task into the following three parts:</p>
+        <p><strong>1. Bounding Box Computation</strong></p>
+        <p>To size the output, I pass the four corners of the source image through $H$ and take their bounding box. I then left-multiply $H$ by a translation (<code>translate_homography</code>) so the box starts at $(0, 0)$. Each warp returns a 4-channel image, and the extra channel is an alpha mask that is 1 where the output pixel has a value and 0 where it falls outside the source. This mask is save to be used in the blending task!</p>
+        <p><strong>2. Inverse Coordinate Mapping</strong></p>
+        <p><code>np.meshgrid</code> builds every output coordinate at once as a $3 \times N$ homogeneous array, a single matrix multiply by $H^{-1}$ maps them all, and I divide by the third coordinate.</p>
+        <p><strong>3. Scratch Interpolation</strong></p>
         <ul>
-          <li><code>warpImageNearestNeighbor</code> rounds each source coordinate to the nearest pixel center and copies that pixel.</li>
-          <li><code>warpImageBilinear</code> takes the four surrounding pixels and averages them with weights $(1-d_x)(1-d_y)$, $d_x(1-d_y)$, $(1-d_x)d_y$, $d_x d_y$, where $d_x, d_y$ are the fractional offsets. I didn't use any library interpolation.</li>
+            <li><code>warpImageNearestNeighbor</code> rounds each source coordinate to the nearest pixel center and copies that pixel.</li>
+            <li><code>warpImageBilinear</code> takes the four surrounding pixels and averages them with weights $(1-d_x)(1-d_y)$, $d_x(1-d_y)$, $(1-d_x)d_y$, $d_x d_y$, where $d_x, d_y$ are the fractional offsets. I didn't use any library interpolation.</li>
         </ul>
       </div>
     </div>
@@ -185,8 +197,8 @@
 
     <div class="explain">
       <div class="explain-text">
-        <p>At full size the two look almost the same, but zoomed in the difference is clear. Nearest neighbor gives blocky, stair-stepped edges on rooftops and windows, because neighboring output pixels often copy the same source pixel. Bilinear is smoother, but slightly softer, since every output pixel is an average.</p>
-        <p>For speed, on the $\approx 11$ megapixel warp canvas nearest neighbor took <strong>0.74 s</strong> and bilinear took <strong>1.66 s</strong>, about 2.2× slower. Bilinear reads four pixels and computes weights instead of one lookup. Bilinear is worth that cost for final results. Nearest neighbor is fine for quick previews, or for warping masks and labels where values shouldn't be averaged.</p>
+        <p>At full size the nearest neighbor approach and the bilinear approach outputs something almost the same. However, if zoomed in, nNearest neighbor gives blocky with stair-stepped edges on rooftops and windows, whereas bilinear is smoother and slightly softer, since every output pixel is an average.</p>
+        <p>For speed, on the $\approx 11$ megapixel warp canvas nearest neighbor took <strong>0.74 s</strong> and bilinear took <strong>1.66 s</strong>, about 2.2× slower. This is because blinear reads four pixels and computes weights instead of one lookup.</p>
       </div>
     </div>
 
@@ -194,14 +206,20 @@
 
     <div class="explain">
       <div class="explain-text">
-        <p>To test the warp on a single image, I click the four corners of an object I know is rectangular (top-left, top-right, bottom-right, bottom-left). I map them to a rectangle with the object's known aspect ratio, using the clicked top edge's length as the width. Then I compute $H$ with <code>computeH</code> and warp the whole image with <code>warpImageBilinear</code>.</p>
+        <p>In the step of imprementing image warping, I test the functinos on a single image that I know is rectangular. I mapped the corners to a rectangle with the object's real aspect ratio, using the length of the top edge as the width. Then I compute $H$ with <code>computeH</code> and warp the image with <code>warpImageBilinear</code>. I found each corner by zooming into the full-resolution photo and reading off its pixel coordinates. Lastly, to avoid points near the horizon get stretched without limit and the predicted bounding box to be enormously large, I clip the output to two rectangle sizes around the target.</p>
+        <p>Here are some results:</p>
       </div>
     </div>
 
-    <div class="todo">
-      <p><strong>TODO:</strong> Take 2+ photos of rectangular things at an angle (poster, painting, floor tile, door). For each one:</p>
-      <p>1. Put the photo in <code>hw4-1/data/</code>. 2. Run <code>python select_points.py &lt;name&gt; &lt;file&gt;</code> and click the 4 corners. 3. Add <code>("&lt;name&gt;", "&lt;file&gt;", width/height)</code> to <code>RECTIFY</code> in <code>main.py</code> and rerun. 4. Add <code>images/a3_rect_&lt;name&gt;.jpg</code> here with a sentence about what's rectified and how it looks.</p>
-    </div>
+    <figure class="wide">
+      <img src="images/a3_rect_poster.jpg" alt="Bulletin board before and after rectification">
+      <figcaption>Poster. Left: the original, with the four corners of the "Need Help?" flyer outlined. Right: rectified so the flyer is an 8.5 × 11 letter-size rectangle.</figcaption>
+    </figure>
+
+    <figure class="wide">
+      <img src="images/a3_rect_tile.jpg" alt="Paving tiles before and after rectification">
+      <figcaption>Tile. Left: the original, with one light tile outlined (corners at the grout crossings). Right: rectified so that tile is a square, as if looking straight down.</figcaption>
+    </figure>
   </div>
 </section>
 
@@ -215,12 +233,14 @@
 
     <div class="explain">
       <div class="explain-text">
-        <p>I left image 1 unwarped and warped image 2 into its projection. The mosaic canvas is the bounding box of image 1's corners together with image 2's warped corners. Both images are warped onto this one canvas, image 1 by the identity plus the canvas offset, so their alpha masks line up.</p>
-        <p>Pasting image 2 on top of image 1 would leave a hard edge wherever the two differ in exposure or alignment. So I blend them in two steps:</p>
+        <p>To merge two images to produce stiched panoramic photo, I left image 1 unwarped and warped image 2 into its projection. The mosaic canvas is the bounding box of image 1's corners together with image 2's warped corners.</p>
+        <p>Pasting image 2 on top of image 1 would leave a hard edge wherever the two differ in exposure or alignment. I tried Feathering and 2 level Laplacian pyramid to avoid this issue.</p>
+        <p><strong>Method and Implementation Logics</strong></p>
         <ol>
           <li><strong>Feathering.</strong> For each image, a distance transform of its alpha mask (<code>cv2.distanceTransform</code>) gives each pixel's distance to that image's nearest edge. I normalize the two distances into weights $w_1, w_2$ that sum to 1 and take the weighted average. Each image dominates near its own center and fades out linearly toward its edge.</li>
           <li><strong>2-level Laplacian pyramid.</strong> Feathering alone leaves "ghosts," where small details are slightly misaligned or moved between shots and show up twice at half strength. So I split each image into a low band (Gaussian blur, $\sigma = 4$, computed only over valid pixels so the black background doesn't bleed in) and a high band (image minus low band). I feather the low band with $w_1, w_2$. For the high band, I take each pixel from whichever image has the larger weight there. Smooth color and brightness changes blend gradually, and sharp details come from only one image.</li>
         </ol>
+        <p><strong>Here are three mosics i produced!</strong></p>
       </div>
     </div>
 
@@ -241,18 +261,11 @@
       <figcaption>Close-up on the seam in the city. Left: overwrite. Middle: feathering. Right: 2-level Laplacian blend.</figcaption>
     </figure>
 
-    <div class="explain">
-      <div class="explain-text">
-        <p>The registration is accurate. Streets, buildings and the shoreline continue across the overlap with no visible doubling, which matches the sub-pixel reprojection error. The two shots were taken seconds apart with similar exposure, so the houses themselves blend without a visible seam. The close-up shows where blending does matter: the brown hillside in the bottom-left. It's close to the camera, so because of parallax it doesn't sit in the same place in the two photos. Overwrite just replaces it with image 2's houses. Feathering averages the two, so the hillside fades in as a see-through layer over the rooftops, the same kind of ghosting as a moving object. The Laplacian blend keeps the houses sharp, but the hillside ends at a visible edge where the high frequencies switch from one image to the other. No homography can align both the distant city and the nearby hill at once.</p>
-        <p>The mosaic is strongly stretched toward the right. The two photos overlap by only about a third, and the camera turned a long way between them. Projecting image 2 onto image 1's flat image plane enlarges it more and more the farther it is from image 1's center. With more overlap, or by warping both images to a middle projection or onto a cylinder, the stretching would be much smaller. The trees in the top right and the slope in the foreground are close to the camera. Any parallax would show up there first, but because RANSAC fit $H$ to the distant city, the far scene is what lines up.</p>
-      </div>
-    </div>
-
     <h3 class="part-title" style="text-align:center; margin-top:56px;">Mosaic 2: Sather Gate</h3>
 
     <figure class="wide">
       <img src="images/a1_sather_sources.jpg" alt="Source images for the Sather Gate mosaic">
-      <figcaption>Source images: <code>sather9</code> (reference) and <code>sather10</code>.</figcaption>
+      <figcaption>Source images: <code>sather1</code> (reference) and <code>sather2</code>.</figcaption>
     </figure>
 
     <figure class="wide">
@@ -265,17 +278,29 @@
       <figcaption>Close-up on the seam at the right pillar. Left: overwrite. Middle: feathering. Right: 2-level Laplacian blend.</figcaption>
     </figure>
 
+    <h3 class="part-title" style="text-align:center; margin-top:56px;">Mosaic 3: Dorm Courtyard</h3>
+
+    <figure class="wide">
+      <img src="images/a1_dorm_sources.jpg" alt="Source images for the dorm mosaic">
+      <figcaption>Source images: <code>dorm1</code> (reference) and <code>dorm2</code>.</figcaption>
+    </figure>
+
+    <figure class="wide">
+      <img src="images/a4_dorm_mosaic.jpg" alt="Blended dorm courtyard mosaic">
+      <figcaption>Final mosaic (2-level Laplacian blend).</figcaption>
+    </figure>
+
+    <figure class="wide">
+      <img src="images/a4_dorm_seam.jpg" alt="Seam close-up on the dorm pillar: overwrite, feathering, Laplacian blend">
+      <figcaption>Close-up on the seam through the nearer pillar. Left: overwrite. Middle: feathering. Right: 2-level Laplacian blend.</figcaption>
+    </figure>
+
     <div class="explain">
-      <div class="explain-text">
-        <p>The gate lines up well. The arch, both lamp posts and the pillar carvings continue across the overlap without doubling. This pair shows the difference between the blending methods much more clearly than San Francisco, because people walked through the gate between the two shots. In the overwrite version, the person in front of the pillar is cut off at the seam. With feathering, that person becomes a see-through ghost over the pillar, since the two images are averaged where one has a person and the other doesn't. The Laplacian blend mostly removes the ghost, because each pixel's sharp detail comes from only one image. A faint tint remains where the person's color leaked into the low band.</p>
-        <p>The black regions come from the two images covering different areas: <code>sather10</code> includes more sky and the left side of the gate, and <code>sather9</code> includes more of the plaza and the right. Cropping to the largest filled rectangle would remove them.</p>
-      </div>
+        <div class="explain-text">
+          <p>Even though I took photos in a short period of time, there are some errors when stiching images together caused mainly by change in angle or the movement of the subject that makes it hard to stich images seamlessly. To metigate this, the 2 steps Laplasian pyramid came in cratch to get rid of "image ghosts". For example in Mosaic 2, there is a face of male student walking in the middle of the image that looks semi-transparent due to the feathering process of image blending. By blending coarse version of the image and upscaling it in Laplasian method, this "ghost" became a lot less visible and made the blending seamless.  </p>
+        </div>
     </div>
 
-    <div class="todo">
-      <p><strong>TODO:</strong> Mosaic 3. Add the set to <code>MOSAICS</code>, rerun <code>main.py</code>, and add <code>images/a1_&lt;name&gt;_sources.jpg</code>, <code>images/a4_&lt;name&gt;_mosaic.jpg</code>, and a sentence on how well it worked (alignment, ghosting, exposure, parallax).</p>
-    </div>
-  </div>
 </section>
 
 <footer>
