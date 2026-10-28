@@ -35,7 +35,7 @@
 
     <div class="explain">
       <div class="explain-text">
-        <p>In this project, I learned how to stitch photos into a mosaic. I shot multiple photos from a fixed point, recovered the homography between each pair, warped one image into the other's frame, and blended the results. Using only NumPy for the linear algebra, I implemented each of those methodsfrom scratch.</p>
+        <p>In this project, I learned how to stitch photos into a mosaic. I shot multiple photos from a fixed point, recovered the homography between each pair, warped one image into the other's frame, and blended the results. I implemented the homography solver, both warps, and the blending from scratch, using NumPy for the linear algebra. The only OpenCV feature tool I used was SIFT, to find candidate point matches.</p>
       </div>
     </div>
   </div>
@@ -51,7 +51,7 @@
     <div class="explain">
       <div class="explain-text">
         <p>For this part of the project, I took multiple images of San Francisco skyline, Sather Gate, and my dorm Unit 2 to build the image stitching based on. </p>
-    <p>I kept in mind to stay in the same position (fix center of projection) and take photos as close together in time as possible so panorama stitching looks convincing in the result. Also, I tried to take images that has overlaps, so I have information I can use to glue them together. To test out the effect of zooming in the image stitching, I took images at different focal lengths as well.</p>
+    <p>I kept in mind to stay in the same position (fix center of projection) and take photos as close together in time as possible so panorama stitching looks convincing in the result. Also, I tried to take images that have overlaps, so I have information I can use to glue them together. To test out the effect of zooming in the image stitching, I took images at different focal lengths as well.</p>
       </div>
     </div>
 
@@ -83,11 +83,12 @@
 
     <div class="explain">
       <div class="explain-text">
-        <p>In this step, I impremented <code>computeH(im1_pts, im2_pts)</code> function.</p>
+        <p>In this step, I implemented <code>computeH(im1_pts, im2_pts)</code> function.</p>
         <p>A homography maps a point $p = (x, y, 1)$ to $p' = Hp$. We get 8 unknowns, and I fix $h_{33} = 1$ to remove the scale ambiguity. Each point correspondence gives two linear equations below. </p>
         <p>$$\begin{bmatrix} x & y & 1 & 0 & 0 & 0 & -ux & -uy \\ 0 & 0 & 0 & x & y & 1 & -vx & -vy \end{bmatrix} \begin{bmatrix} h_{11} \\ h_{12} \\ \vdots \\ h_{32} \end{bmatrix} = \begin{bmatrix} u \\ v \end{bmatrix}$$</p>
         <p><code>computeH(im1_pts, im2_pts)</code> stacks these rows for all $n$ points into $A h = b$. With $n = 4$ there is exactly one solution, but a few pixels of error in any point changes $H$ a lot. With $n &gt; 4$ the system is overdetermined, so I solve it in the least-squares sense with <code>np.linalg.lstsq</code>.</p>
         <p><strong>Correspondences Visualized</strong></p>
+        <p>Instead of clicking points by hand, I found the correspondences automatically. I detected SIFT features in both images (<code>cv2.SIFT_create</code>) and matched them with Lowe's ratio test (0.75). Some of those matches are wrong, or sit on nearby objects that don't follow the same homography because of parallax. To remove them, I wrote a RANSAC loop around my own <code>computeH</code>: fit $H$ to 4 random matches, count how many matches land within 2 px, and keep the largest such set. The final $H$ is the least-squares fit to all of those inliers. I didn't use <code>cv2.findHomography</code> or any other built-in homography function. I also wrote <code>select_points.py</code>, a <code>ginput</code> clicking tool; any points saved with it replace the automatic matches.</p>
       </div>
     </div>
 
@@ -169,9 +170,9 @@
 
     <div class="explain">
       <div class="explain-text">
-        <p>In this part of the project, I impremented <code> warpImageNearestNeighbor(im, H)</code> and <code>warpImageBilinear(im, H)</code> using inverse warping. To do so, I broke down the task into the following three parts:</p>
+        <p>In this part of the project, I implemented <code> warpImageNearestNeighbor(im, H)</code> and <code>warpImageBilinear(im, H)</code> using inverse warping. To do so, I broke down the task into the following three parts:</p>
         <p><strong>1. Bounding Box Computation</strong></p>
-        <p>To size the output, I pass the four corners of the source image through $H$ and take their bounding box. I then left-multiply $H$ by a translation (<code>translate_homography</code>) so the box starts at $(0, 0)$. Each warp returns a 4-channel image, and the extra channel is an alpha mask that is 1 where the output pixel has a value and 0 where it falls outside the source. This mask is save to be used in the blending task!</p>
+        <p>To size the output, I pass the four corners of the source image through $H$ and take their bounding box. I then left-multiply $H$ by a translation (<code>translate_homography</code>) so the box starts at $(0, 0)$. Each warp returns a 4-channel image, and the extra channel is an alpha mask that is 1 where the output pixel has a value and 0 where it falls outside the source. This mask is saved to be used in the blending task!</p>
         <p><strong>2. Inverse Coordinate Mapping</strong></p>
         <p><code>np.meshgrid</code> builds every output coordinate at once as a $3 \times N$ homogeneous array, a single matrix multiply by $H^{-1}$ maps them all, and I divide by the third coordinate.</p>
         <p><strong>3. Scratch Interpolation</strong></p>
@@ -197,8 +198,8 @@
 
     <div class="explain">
       <div class="explain-text">
-        <p>At full size the nearest neighbor approach and the bilinear approach outputs something almost the same. However, if zoomed in, nNearest neighbor gives blocky with stair-stepped edges on rooftops and windows, whereas bilinear is smoother and slightly softer, since every output pixel is an average.</p>
-        <p>For speed, on the $\approx 11$ megapixel warp canvas nearest neighbor took <strong>0.74 s</strong> and bilinear took <strong>1.66 s</strong>, about 2.2× slower. This is because blinear reads four pixels and computes weights instead of one lookup.</p>
+        <p>At full size the nearest neighbor approach and the bilinear approach outputs something almost the same. However, if zoomed in, nearest neighbor gives blocky with stair-stepped edges on rooftops and windows, whereas bilinear is smoother and slightly softer, since every output pixel is an average.</p>
+        <p>For speed, on the $\approx 11$ megapixel warp canvas nearest neighbor took <strong>0.74 s</strong> and bilinear took <strong>1.66 s</strong>, about 2.2× slower. This is because bilinear reads four pixels and computes weights instead of one lookup.</p>
       </div>
     </div>
 
@@ -206,7 +207,7 @@
 
     <div class="explain">
       <div class="explain-text">
-        <p>In the step of imprementing image warping, I test the functinos on a single image that I know is rectangular. I mapped the corners to a rectangle with the object's real aspect ratio, using the length of the top edge as the width. Then I compute $H$ with <code>computeH</code> and warp the image with <code>warpImageBilinear</code>. I found each corner by zooming into the full-resolution photo and reading off its pixel coordinates. Lastly, to avoid points near the horizon get stretched without limit and the predicted bounding box to be enormously large, I clip the output to two rectangle sizes around the target.</p>
+        <p>In the step of implementing image warping, I test the functions on a single image that I know is rectangular. I mapped the corners to a rectangle with the object's real aspect ratio, using the length of the top edge as the width. Then I compute $H$ with <code>computeH</code> and warp the image with <code>warpImageBilinear</code>. I found each corner by zooming into the full-resolution photo and reading off its pixel coordinates. Lastly, to avoid points near the horizon get stretched without limit and the predicted bounding box to be enormously large, I clip the output to two rectangle sizes around the target.</p>
         <p>Here are some results:</p>
       </div>
     </div>
@@ -233,14 +234,14 @@
 
     <div class="explain">
       <div class="explain-text">
-        <p>To merge two images to produce stiched panoramic photo, I left image 1 unwarped and warped image 2 into its projection. The mosaic canvas is the bounding box of image 1's corners together with image 2's warped corners.</p>
+        <p>To merge two images to produce a stitched panoramic photo, I left image 1 unwarped and warped image 2 into its projection. The mosaic canvas is the bounding box of image 1's corners together with image 2's warped corners.</p>
         <p>Pasting image 2 on top of image 1 would leave a hard edge wherever the two differ in exposure or alignment. I tried Feathering and 2 level Laplacian pyramid to avoid this issue.</p>
         <p><strong>Method and Implementation Logics</strong></p>
         <ol>
           <li><strong>Feathering.</strong> For each image, a distance transform of its alpha mask (<code>cv2.distanceTransform</code>) gives each pixel's distance to that image's nearest edge. I normalize the two distances into weights $w_1, w_2$ that sum to 1 and take the weighted average. Each image dominates near its own center and fades out linearly toward its edge.</li>
           <li><strong>2-level Laplacian pyramid.</strong> Feathering alone leaves "ghosts," where small details are slightly misaligned or moved between shots and show up twice at half strength. So I split each image into a low band (Gaussian blur, $\sigma = 4$, computed only over valid pixels so the black background doesn't bleed in) and a high band (image minus low band). I feather the low band with $w_1, w_2$. For the high band, I take each pixel from whichever image has the larger weight there. Smooth color and brightness changes blend gradually, and sharp details come from only one image.</li>
         </ol>
-        <p><strong>Here are three mosics i produced!</strong></p>
+        <p><strong>Here are three mosaics I produced!</strong></p>
       </div>
     </div>
 
@@ -297,7 +298,7 @@
 
     <div class="explain">
         <div class="explain-text">
-          <p>Even though I took photos in a short period of time, there are some errors when stiching images together caused mainly by change in angle or the movement of the subject that makes it hard to stich images seamlessly. To metigate this, the 2 steps Laplasian pyramid came in cratch to get rid of "image ghosts". For example in Mosaic 2, there is a face of male student walking in the middle of the image that looks semi-transparent due to the feathering process of image blending. By blending coarse version of the image and upscaling it in Laplasian method, this "ghost" became a lot less visible and made the blending seamless.  </p>
+          <p>Even though I took photos in a short period of time, there are some errors when stitching images together caused mainly by change in angle or the movement of the subject that makes it hard to stitch images seamlessly. To mitigate this, the 2-level Laplacian pyramid came in clutch to get rid of "image ghosts". For example in Mosaic 2, there is a face of male student walking in the middle of the image that looks semi-transparent due to the feathering process of image blending. The Laplacian method blends only the blurred (low-frequency) parts of the two images smoothly, and takes sharp detail from just one image at each pixel, so this "ghost" became a lot less visible and made the blending seamless.  </p>
         </div>
     </div>
 
