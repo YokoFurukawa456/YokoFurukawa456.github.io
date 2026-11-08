@@ -35,7 +35,7 @@
 
     <div class="explain">
       <div class="explain-text">
-        <p>In this project, I learned how to stitch photos into a mosaic. I shot multiple photos from a fixed point, recovered the homography between each pair, warped one image into the other's frame, and blended the results. I implemented the homography solver, both warps, and the blending from scratch, using NumPy for the linear algebra. The only OpenCV feature tool I used was SIFT, to find candidate point matches.</p>
+        <p>In this project, I learned how to stitch photos into a mosaic. I shot multiple photos from a fixed point, recovered the homography between each pair, warped one image into the other's frame, and blended the results. I implemented the homography solver, both warps, and the blending from scratch, using NumPy for the linear algebra. In Part A, the only OpenCV feature tool I used was SIFT, to find candidate point matches. In Part B, I replaced SIFT with my own pipeline (Harris corners, ANMS, patch descriptors, ratio-test matching, and RANSAC) to stitch the same images fully automatically.</p>
       </div>
     </div>
   </div>
@@ -301,8 +301,234 @@
           <p>Even though I took photos in a short period of time, there are some errors when stitching images together caused mainly by change in angle or the movement of the subject that makes it hard to stitch images seamlessly. To mitigate this, the 2-level Laplacian pyramid came in clutch to get rid of "image ghosts". For example in Mosaic 2, there is a face of male student walking in the middle of the image that looks semi-transparent due to the feathering process of image blending. The Laplacian method blends only the blurred (low-frequency) parts of the two images smoothly, and takes sharp detail from just one image at each pixel, so this "ghost" became a lot less visible and made the blending seamless.  </p>
         </div>
     </div>
-
+  </div>
 </section>
+
+<!-- ============================== B.1 ============================== -->
+<section class="part" id="b1">
+  <div class="wrap">
+    <div class="part-head">
+      <p class="part-index">Part B.1</p>
+      <h2 class="part-title">Harris Corners and ANMS</h2>
+    </div>
+
+    <div class="explain">
+      <div class="explain-text">
+        <p>In Part B, I replaced SIFT with my own feature pipeline, following "Multi-Image Matching using Multi-Scale Oriented Patches" (Brown et al.) with a few simplifications: a single scale, no sub-pixel refinement, and no rotation.</p>
+        <p><strong>Harris corners.</strong> The detector follows the provided <code>harris.py</code>. It smooths the image gradients' outer products with a Gaussian ($\sigma = 1$) to get the second-moment matrix $\mathbf{H}$ at every pixel. The corner strength is the harmonic mean of its eigenvalues, $f_{HM} = \det \mathbf{H} / \operatorname{tr} \mathbf{H}$. Every local maximum in a $3 \times 3$ window counts as a corner, and corners within 20 px of the border are dropped so the 40×40 descriptor window in B.2 always fits.</p>
+        <p><strong>Adaptive Non-Maximal Suppression.</strong> Harris returns tens of thousands of corners, crowded into textured areas like trees and gravel. Keeping just the strongest ones would cluster them in the same places. ANMS gives each corner a suppression radius, the distance to the nearest corner that is clearly stronger:</p>
+        <p>$$r_i = \min_j \lVert \mathbf{x}_i - \mathbf{x}_j \rVert \quad \text{s.t.} \quad f(\mathbf{x}_i) &lt; c_{\text{robust}} \, f(\mathbf{x}_j), \qquad c_{\text{robust}} = 0.9$$</p>
+        <p>I keep the 1000 corners with the largest radii. A corner survives if it is the strongest in a large neighborhood, so the kept corners are both strong and spread evenly over the image. To make this fast, I sort the corners by strength first. The corners that can suppress corner $i$ are then exactly a prefix of the sorted list, so I only compare each corner against that prefix, in chunks to keep memory low.</p>
+      </div>
+    </div>
+
+    <figure class="wide">
+      <div class="img-row">
+        <img src="images/b1_sf_harris.jpg" alt="All Harris corners on the San Francisco image">
+        <img src="images/b1_sf_anms.jpg" alt="Corners kept by ANMS on the San Francisco image">
+      </div>
+      <figcaption>San Francisco. Left: all 41,516 Harris corners. Right: the 1000 corners kept by ANMS.</figcaption>
+    </figure>
+
+    <figure class="wide">
+      <div class="img-row">
+        <img src="images/b1_sather_harris.jpg" alt="All Harris corners on the Sather Gate image">
+        <img src="images/b1_sather_anms.jpg" alt="Corners kept by ANMS on the Sather Gate image">
+      </div>
+      <figcaption>Sather Gate. Left: all 18,211 Harris corners. Right: the 1000 corners kept by ANMS.</figcaption>
+    </figure>
+
+    <figure class="wide">
+      <div class="img-row">
+        <img src="images/b1_dorm_harris.jpg" alt="All Harris corners on the dorm image">
+        <img src="images/b1_dorm_anms.jpg" alt="Corners kept by ANMS on the dorm image">
+      </div>
+      <figcaption>Dorm courtyard. Left: all 37,072 Harris corners. Right: the 1000 corners kept by ANMS.</figcaption>
+    </figure>
+
+    <div class="explain">
+      <div class="explain-text">
+        <p>Without ANMS the corners cover almost every pixel of texture, while after ANMS they spread out evenly, about 17–24 px apart at minimum, and reach into the sky, road, and building facades. That spread matters for B.4, because a homography fit to points from all over the overlap is much better constrained than one fit to a single cluster.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== B.2 ============================== -->
+<section class="part" id="b2">
+  <div class="wrap">
+    <div class="part-head">
+      <p class="part-index">Part B.2</p>
+      <h2 class="part-title">Feature Descriptor Extraction</h2>
+    </div>
+
+    <div class="explain">
+      <div class="explain-text">
+        <p>For each corner, I describe the area around it with an axis-aligned version of the MOPS descriptor:</p>
+        <ol>
+          <li><strong>Blur.</strong> I blur the grayscale image with a Gaussian ($\sigma = 2.5$). That way each sample in the next step stands for its whole 5×5 area instead of a single pixel, which avoids aliasing and makes the descriptor tolerant of small errors in the corner's position.</li>
+          <li><strong>Sample.</strong> I take an 8×8 grid of samples, 5 px apart, spanning the 40×40 window centered on the corner. All corners are sampled at once with NumPy fancy indexing.</li>
+          <li><strong>Bias/gain normalize.</strong> I subtract the patch mean and divide by its standard deviation, so every descriptor has mean 0 and standard deviation 1. Two views of the same spot then match even if one photo is brighter or has more contrast.</li>
+        </ol>
+        <p>This gives a 64-dimensional vector per corner. I skipped rotation invariance and the wavelet step, as the assignment allows.</p>
+      </div>
+    </div>
+
+    <figure class="wide">
+      <img src="images/b2_sather_descriptors.jpg" alt="Six features on Sather Gate with their 40x40 windows and 8x8 descriptors">
+      <figcaption>Six random features from Sather Gate. Middle row: the 40×40 window around each corner. Bottom row: its normalized 8×8 descriptor.</figcaption>
+    </figure>
+
+    <figure class="wide">
+      <img src="images/b2_sf_descriptors.jpg" alt="Six features on San Francisco with their 40x40 windows and 8x8 descriptors">
+      <figcaption>Six random features from San Francisco.</figcaption>
+    </figure>
+
+    <div class="explain">
+      <div class="explain-text">
+        <p>The descriptors keep the coarse structure of each window, such as the scroll pattern of the gate ironwork, while dropping fine detail. Gain normalization is easy to see on Sather Gate feature 3: its window is nearly black foliage, but its descriptor uses the full range from black to white.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== B.3 ============================== -->
+<section class="part" id="b3">
+  <div class="wrap">
+    <div class="part-head">
+      <p class="part-index">Part B.3</p>
+      <h2 class="part-title">Feature Matching</h2>
+    </div>
+
+    <div class="explain">
+      <div class="explain-text">
+        <p>To match features, I compute the squared distance (SSD) between every descriptor in image 1 and every descriptor in image 2 using the provided <code>dist2</code>. For each feature in image 1, I find its nearest neighbor (error $e_{1\text{-NN}}$) and second-nearest neighbor ($e_{2\text{-NN}}$) in image 2.</p>
+        <p>A single threshold on $e_{1\text{-NN}}$ works poorly, because some features are distinctive and others are not. Instead I use Lowe's ratio test. A match is kept only if its best match is much better than the runner-up:</p>
+        <p>$$\frac{e_{1\text{-NN}}}{e_{2\text{-NN}}} &lt; 0.4$$</p>
+        <p>I chose 0.4 from Figure 6b of the paper. There, almost all correct matches have a ratio below about 0.4, while incorrect matches spread between about 0.6 and 1. If a feature looks similar to many others (sky, repeated windows), its first and second neighbors are about equally close and the ratio test rejects it.</p>
+      </div>
+    </div>
+
+    <figure class="wide">
+      <img src="images/b3_sf_matches.jpg" alt="Feature matches between the two San Francisco images">
+      <figcaption>San Francisco: 59 matches pass the ratio test.</figcaption>
+    </figure>
+
+    <figure class="wide">
+      <img src="images/b3_sather_matches.jpg" alt="Feature matches between the two Sather Gate images">
+      <figcaption>Sather Gate: 170 matches.</figcaption>
+    </figure>
+
+    <figure class="wide">
+      <img src="images/b3_dorm_matches.jpg" alt="Feature matches between the two dorm images">
+      <figcaption>Dorm courtyard: 28 matches.</figcaption>
+    </figure>
+
+    <div class="explain">
+      <div class="explain-text">
+        <p>Most matches are correct and run in parallel, but a few are not. In San Francisco some matches land on the clouds, which look alike and also moved between the two shots. These wrong matches would ruin a least-squares fit, so B.4 has to remove them.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== B.4 ============================== -->
+<section class="part" id="b4">
+  <div class="wrap">
+    <div class="part-head">
+      <p class="part-index">Part B.4</p>
+      <h2 class="part-title">RANSAC for Robust Homography</h2>
+    </div>
+
+    <div class="explain">
+      <div class="explain-text">
+        <p>I implemented 4-point RANSAC from scratch in <code>ransac_homography</code>:</p>
+        <ol>
+          <li>Pick 4 random matches and compute the exact homography through them with my Part A <code>computeH</code>.</li>
+          <li>Map every matched point in image 2 through that $H$ and count the inliers, the matches that land within 3 px of their partner in image 1.</li>
+          <li>Repeat 5000 times and keep the largest inlier set.</li>
+          <li>Refit $H$ to all of those inliers with least squares.</li>
+        </ol>
+        <p>A wrong match almost never agrees with the homography that the correct matches share, so it falls out of the consensus set. I then build the mosaic with the same warp and 2-level Laplacian blend as Part A.4.</p>
+      </div>
+    </div>
+
+    <figure class="wide">
+      <img src="images/b4_sf_ransac.jpg" alt="RANSAC inliers and outliers for San Francisco">
+      <figcaption>San Francisco: 36 inliers (green) and 23 rejected matches (red).</figcaption>
+    </figure>
+
+    <figure class="wide">
+      <img src="images/b4_sather_ransac.jpg" alt="RANSAC inliers and outliers for Sather Gate">
+      <figcaption>Sather Gate: 162 inliers and 8 rejected matches.</figcaption>
+    </figure>
+
+    <figure class="wide">
+      <img src="images/b4_dorm_ransac.jpg" alt="RANSAC inliers and outliers for the dorm courtyard">
+      <figcaption>Dorm courtyard: 17 inliers and 11 rejected matches.</figcaption>
+    </figure>
+
+    <h3 class="part-title" style="text-align:center; margin-top:56px;">Part A vs. Automatic Stitching</h3>
+
+    <div class="explain">
+      <div class="explain-text">
+        <p>Each comparison below puts the Part A mosaic on the left and the fully automatic Part B mosaic on the right. Note that the Part A correspondences were not hand-clicked: as described in A.2, they came from SIFT matches cleaned with RANSAC. To compare the two homographies, I measure how far each one misses on the Part A correspondences themselves, which all lie inside the overlap.</p>
+      </div>
+    </div>
+
+    <table class="params">
+      <tr><th>Mosaic</th><th>Ratio-test matches</th><th>RANSAC inliers</th><th>Part A $H$ error</th><th>Automatic $H$ error</th></tr>
+      <tr><td>San Francisco</td><td>59</td><td>36</td><td>0.87 px</td><td>1.12 px</td></tr>
+      <tr><td>Sather Gate</td><td>170</td><td>162</td><td>0.90 px</td><td>0.94 px</td></tr>
+      <tr><td>Dorm courtyard</td><td>28</td><td>17</td><td>0.68 px</td><td>6.20 px</td></tr>
+    </table>
+
+    <h3 class="part-title" style="text-align:center; margin-top:56px;">Mosaic 1: San Francisco</h3>
+
+    <figure class="wide">
+      <img src="images/b4_sf_compare.jpg" alt="San Francisco mosaic from Part A next to the automatic mosaic">
+      <figcaption>Left: Part A (SIFT correspondences). Right: automatic (Harris + ANMS + descriptors + RANSAC).</figcaption>
+    </figure>
+
+    <figure class="wide">
+      <img src="images/b4_sf_auto_mosaic.jpg" alt="Automatic San Francisco mosaic">
+      <figcaption>Automatic mosaic, full size.</figcaption>
+    </figure>
+
+    <h3 class="part-title" style="text-align:center; margin-top:56px;">Mosaic 2: Sather Gate</h3>
+
+    <figure class="wide">
+      <img src="images/b4_sather_compare.jpg" alt="Sather Gate mosaic from Part A next to the automatic mosaic">
+      <figcaption>Left: Part A. Right: automatic.</figcaption>
+    </figure>
+
+    <figure class="wide">
+      <img src="images/b4_sather_auto_mosaic.jpg" alt="Automatic Sather Gate mosaic">
+      <figcaption>Automatic mosaic, full size.</figcaption>
+    </figure>
+
+    <h3 class="part-title" style="text-align:center; margin-top:56px;">Mosaic 3: Dorm Courtyard</h3>
+
+    <figure class="wide">
+      <img src="images/b4_dorm_compare.jpg" alt="Dorm mosaic from Part A next to the automatic mosaic">
+      <figcaption>Left: Part A. Right: automatic.</figcaption>
+    </figure>
+
+    <figure class="wide">
+      <img src="images/b4_dorm_auto_mosaic.jpg" alt="Automatic dorm courtyard mosaic">
+      <figcaption>Automatic mosaic, full size.</figcaption>
+    </figure>
+
+    <div class="explain">
+      <div class="explain-text">
+        <p>For San Francisco and Sather Gate, the automatic homography is within about 0.25 px of the Part A one, and the mosaics look the same. That is with far fewer correspondences (36 and 162, compared with 767 and 1127), because ANMS spreads them over the whole overlap.</p>
+        <p>San Francisco needed one adjustment. With the paper's 500 ANMS corners, only a handful of corners fell in the small overlap, and several RANSAC inliers were on the clouds, which drifted between the two shots and pulled $H$ off. Keeping 1000 corners put enough matches on the city for the static scene to win the vote.</p>
+        <p>The dorm pair is the weakest, with only 17 inliers and a 6 px error, even though the mosaic still looks close to the Part A one. The Part A homography shows the second view is rotated by roughly 15°. My descriptors are axis-aligned, so a rotated patch produces a different descriptor and few features match. Adding the paper's rotation invariance (orienting each patch along its dominant gradient) would fix this.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
 
 <footer>
   <p>CS180 · Project 4 · Yoko Furukawa</p>
