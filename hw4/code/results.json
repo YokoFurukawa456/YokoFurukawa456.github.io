@@ -98,8 +98,8 @@
       724.2789916992188
     ],
     "warp_seconds": {
-      "nearest": 1.1061352079268545,
-      "bilinear": 1.9933460840256885
+      "nearest": 1.320078040997032,
+      "bilinear": 2.074794667016249
     },
     "warp_pixels": 11111200
   },
@@ -108,7 +108,7 @@
       756,
       1008
     ],
-    "sift_matches": 1257,
+    "sift_matches": null,
     "correspondences": 1127,
     "reprojection_error_px": {
       "mean": 0.9033326706597545,
@@ -202,8 +202,8 @@
       347.1831359863281
     ],
     "warp_seconds": {
-      "nearest": 0.09185583295766264,
-      "bilinear": 0.29105608304962516
+      "nearest": 0.11875420800060965,
+      "bilinear": 0.43365920800715685
     },
     "warp_pixels": 1171971
   },
@@ -212,7 +212,7 @@
       1071,
       1428
     ],
-    "sift_matches": 894,
+    "sift_matches": null,
     "correspondences": 505,
     "reprojection_error_px": {
       "mean": 0.6811747144477721,
@@ -306,8 +306,8 @@
       677.98681640625
     ],
     "warp_seconds": {
-      "nearest": 0.057728667045012116,
-      "bilinear": 0.2114012079546228
+      "nearest": 0.056698542000958696,
+      "bilinear": 0.2161821250047069
     },
     "warp_pixels": 795720
   }
