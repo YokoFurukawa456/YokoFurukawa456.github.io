@@ -314,11 +314,18 @@
 
     <div class="explain">
       <div class="explain-text">
-        <p>In Part B, I replaced SIFT with my own feature pipeline, following "Multi-Image Matching using Multi-Scale Oriented Patches" (Brown et al.) with a few simplifications: a single scale, no sub-pixel refinement, and no rotation.</p>
-        <p><strong>Harris corners.</strong> The detector follows the provided <code>harris.py</code>. It smooths the image gradients' outer products with a Gaussian ($\sigma = 1$) to get the second-moment matrix $\mathbf{H}$ at every pixel. The corner strength is the harmonic mean of its eigenvalues, $f_{HM} = \det \mathbf{H} / \operatorname{tr} \mathbf{H}$. Every local maximum in a $3 \times 3$ window counts as a corner, and corners within 20 px of the border are dropped so the 40×40 descriptor window in B.2 always fits.</p>
-        <p><strong>Adaptive Non-Maximal Suppression.</strong> Harris returns tens of thousands of corners, crowded into textured areas like trees and gravel. Keeping just the strongest ones would cluster them in the same places. ANMS gives each corner a suppression radius, the distance to the nearest corner that is clearly stronger:</p>
+        <p>In this part of homework, I replaced SIFT with my own feature pipeline inspired by "Multi-Image Matching using Multi-Scale Oriented Patches" (Brown et al.). This process includes a few simplifications:</p>
+        <p>
+          <ul>
+            <li>single scale</li>
+            <li>no sub-pixel refinement</li>
+            <li>no rotation</li>
+          </ul>
+        </p>
+        <p><strong>Harris corners:</strong> Following the provided <code>harris.py</code>, detector smooths the image gradients' outer products with a Gaussian ($\sigma = 1$) to get the second-moment matrix $\mathbf{H}$ at every pixel. The corner strength is the harmonic mean of its eigenvalues, $f_{HM} = \det \mathbf{H} / \operatorname{tr} \mathbf{H}$, and every local maximum in a $3 \times 3$ window counts as a corner. Corners within 20 px of the border are dropped so the 40×40 descriptor window in B.2 always fits.</p>
+        <p><strong>Adaptive Non-Maximal Suppression:</strong> As you see in the photos on the left side, when outputting all Harri's codners, this algorythm returns tens of thousands of corners, mainly crowded into textured areas like trees and gravel. As we are interested in these Harris corners as key points, I just kept the strongest ones. ANMS helps me doing so by giving each corner a suppression radius, the distance to the nearest corner that is clearly stronger.</p>
         <p>$$r_i = \min_j \lVert \mathbf{x}_i - \mathbf{x}_j \rVert \quad \text{s.t.} \quad f(\mathbf{x}_i) &lt; c_{\text{robust}} \, f(\mathbf{x}_j), \qquad c_{\text{robust}} = 0.9$$</p>
-        <p>I keep the 1000 corners with the largest radii. A corner survives if it is the strongest in a large neighborhood, so the kept corners are both strong and spread evenly over the image. To make this fast, I sort the corners by strength first. The corners that can suppress corner $i$ are then exactly a prefix of the sorted list, so I only compare each corner against that prefix, in chunks to keep memory low.</p>
+        <p>In this imprementation, I kept the 1000 corners with the largest radii. A corner survives if it is the strongest in a large neighborhood, so the strongest corners are evenly over the image. To make this fast, I sort the corners by strength first. The corners that can suppress corner $i$ are then exactly a prefix of the sorted list, so I only compare each corner against that prefix, in chunks to optimize memory usage.</p>
       </div>
     </div>
 
@@ -345,12 +352,6 @@
       </div>
       <figcaption>Dorm courtyard. Left: all 37,072 Harris corners. Right: the 1000 corners kept by ANMS.</figcaption>
     </figure>
-
-    <div class="explain">
-      <div class="explain-text">
-        <p>Without ANMS the corners cover almost every pixel of texture, while after ANMS they spread out evenly, about 17–24 px apart at minimum, and reach into the sky, road, and building facades. That spread matters for B.4, because a homography fit to points from all over the overlap is much better constrained than one fit to a single cluster.</p>
-      </div>
-    </div>
   </div>
 </section>
 
@@ -364,13 +365,12 @@
 
     <div class="explain">
       <div class="explain-text">
-        <p>For each corner, I describe the area around it with an axis-aligned version of the MOPS descriptor:</p>
+        <p>In this step, I impremented Feature Descriptor extraction. For each corner, I describe the area around it with an axis-aligned version of the MOPS descriptor.</p>
         <ol>
-          <li><strong>Blur.</strong> I blur the grayscale image with a Gaussian ($\sigma = 2.5$). That way each sample in the next step stands for its whole 5×5 area instead of a single pixel, which avoids aliasing and makes the descriptor tolerant of small errors in the corner's position.</li>
-          <li><strong>Sample.</strong> I take an 8×8 grid of samples, 5 px apart, spanning the 40×40 window centered on the corner. All corners are sampled at once with NumPy fancy indexing.</li>
-          <li><strong>Bias/gain normalize.</strong> I subtract the patch mean and divide by its standard deviation, so every descriptor has mean 0 and standard deviation 1. Two views of the same spot then match even if one photo is brighter or has more contrast.</li>
+          <li><strong>Blur</strong> - I blur the grayscale image with a Gaussian ($\sigma = 2.5$) so each sample in the next step stands for its whole 5×5 area instead of a single pixel. This helps me avoid aliasing.</li>
+          <li><strong>Sample</strong> - I take an 8×8 grid of samples, 5 px apart, spanning the 40×40 window centered on the corner. All corners are sampled at once with NumPy fancy indexing.</li>
+          <li><strong>Bias/gain normalize</strong> - I subtract the patch mean and divide by its standard deviation, so every descriptor has mean 0 and standard deviation 1 (normalization). Two views of the same spot then match even if one photo is brighter or has more contrast.</li>
         </ol>
-        <p>This gives a 64-dimensional vector per corner. I skipped rotation invariance and the wavelet step, as the assignment allows.</p>
       </div>
     </div>
 
@@ -386,7 +386,7 @@
 
     <div class="explain">
       <div class="explain-text">
-        <p>The descriptors keep the coarse structure of each window, such as the scroll pattern of the gate ironwork, while dropping fine detail. Gain normalization is easy to see on Sather Gate feature 3: its window is nearly black foliage, but its descriptor uses the full range from black to white.</p>
+        <p>The descriptors keep the coarse structure while dropping fine detail.</p>
       </div>
     </div>
   </div>
@@ -402,10 +402,10 @@
 
     <div class="explain">
       <div class="explain-text">
-        <p>To match features, I compute the squared distance (SSD) between every descriptor in image 1 and every descriptor in image 2 using the provided <code>dist2</code>. For each feature in image 1, I find its nearest neighbor (error $e_{1\text{-NN}}$) and second-nearest neighbor ($e_{2\text{-NN}}$) in image 2.</p>
-        <p>A single threshold on $e_{1\text{-NN}}$ works poorly, because some features are distinctive and others are not. Instead I use Lowe's ratio test. A match is kept only if its best match is much better than the runner-up:</p>
-        <p>$$\frac{e_{1\text{-NN}}}{e_{2\text{-NN}}} &lt; 0.4$$</p>
-        <p>I chose 0.4 from Figure 6b of the paper. There, almost all correct matches have a ratio below about 0.4, while incorrect matches spread between about 0.6 and 1. If a feature looks similar to many others (sky, repeated windows), its first and second neighbors are about equally close and the ratio test rejects it.</p>
+        <p>In this step, I computed the squared distance between every descriptor in image 1 and every descriptor in image 2 using the provided <code>dist2</code>. </p>
+        <p>For each feature in image 1, I find its nearest neighbor (error $e_{1\text{-NN}}$) and second-nearest neighbor ($e_{2\text{-NN}}$) in image 2. The reason why I kept track of second nearst neighbor is that a single threshold on $e_{1\text{-NN}}$ works poorly because some features are distinctive and others are not. I use Lowe's ratio test, and a match is kept only if its best match is much better than the runner-up.</p>
+        <p>$$\frac{e_{1\text{-NN}}}{e_{2\text{-NN}}} &lt; 0.4$$       (I chose 0.4 from Figure 6b of the paper) </p>
+        <p>Almost all correct matches have a ratio below about 0.4, while incorrect matches spread between about 0.6 and 1. If a feature looks similar to many others (sky, repeated windows), its first and second neighbors are about equally close and the ratio test rejects it.</p>
       </div>
     </div>
 
@@ -423,12 +423,6 @@
       <img src="images/b3_dorm_matches.jpg" alt="Feature matches between the two dorm images">
       <figcaption>Dorm courtyard: 28 matches.</figcaption>
     </figure>
-
-    <div class="explain">
-      <div class="explain-text">
-        <p>Most matches are correct and run in parallel, but a few are not. In San Francisco some matches land on the clouds, which look alike and also moved between the two shots. These wrong matches would ruin a least-squares fit, so B.4 has to remove them.</p>
-      </div>
-    </div>
   </div>
 </section>
 
@@ -442,7 +436,7 @@
 
     <div class="explain">
       <div class="explain-text">
-        <p>I implemented 4-point RANSAC from scratch in <code>ransac_homography</code>:</p>
+        <p>I implemented 4-point RANSAC from scratch in <code>ransac_homography</code> in the following steps:</p>
         <ol>
           <li>Pick 4 random matches and compute the exact homography through them with my Part A <code>computeH</code>.</li>
           <li>Map every matched point in image 2 through that $H$ and count the inliers, the matches that land within 3 px of their partner in image 1.</li>
@@ -472,7 +466,7 @@
 
     <div class="explain">
       <div class="explain-text">
-        <p>Each comparison below puts the Part A mosaic on the left and the fully automatic Part B mosaic on the right. Note that the Part A correspondences were not hand-clicked: as described in A.2, they came from SIFT matches cleaned with RANSAC. To compare the two homographies, I measure how far each one misses on the Part A correspondences themselves, which all lie inside the overlap.</p>
+        <p>Below, I compared the Part A mosaic on the left and the fully automatic Part B mosaic on the right. To compare the two homographies, I measure how far each one misses on the Part A correspondences themselves, which all lie inside the overlap.</p>
       </div>
     </div>
 
