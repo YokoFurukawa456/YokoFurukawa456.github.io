@@ -513,13 +513,6 @@
       <figcaption>Automatic mosaic, full size.</figcaption>
     </figure>
 
-    <div class="explain">
-      <div class="explain-text">
-        <p>For San Francisco and Sather Gate, the automatic homography is within about 0.25 px of the Part A one, and the mosaics look the same. That is with far fewer correspondences (36 and 162, compared with 767 and 1127), because ANMS spreads them over the whole overlap.</p>
-        <p>San Francisco needed one adjustment. With the paper's 500 ANMS corners, only a handful of corners fell in the small overlap, and several RANSAC inliers were on the clouds, which drifted between the two shots and pulled $H$ off. Keeping 1000 corners put enough matches on the city for the static scene to win the vote.</p>
-        <p>The dorm pair is the weakest, with only 17 inliers and a 6 px error, even though the mosaic still looks close to the Part A one. The Part A homography shows the second view is rotated by roughly 15°. My descriptors are axis-aligned, so a rotated patch produces a different descriptor and few features match. Adding the paper's rotation invariance (orienting each patch along its dominant gradient) would fix this.</p>
-      </div>
-    </div>
   </div>
 </section>
 
